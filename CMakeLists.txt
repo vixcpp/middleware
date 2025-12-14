@@ -28,6 +28,8 @@
 
 cmake_minimum_required(VERSION 3.20)
 project(vix_middleware VERSION 1.0.0 LANGUAGES CXX)
+set(CMAKE_DISABLE_FIND_PACKAGE_VixOrm ON)
+
 
 include(GNUInstallDirs)
 
