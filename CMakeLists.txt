@@ -38,10 +38,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(GLOBAL_CXX_FLAGS "-Wall -Wextra -Wshadow -Weffc++")
-set(CMAKE_CXX_FLAGS_RELEASE "${GLOBAL_CXX_FLAGS} -O2 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG   "${GLOBAL_CXX_FLAGS} -g")
-
 # ------------------------ Sources discovery --------------------------
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
@@ -103,33 +99,18 @@ function(vix_middleware_try_link_json onto link_scope)
   endif()
 endfunction()
 
-# ------------------------ Helper: Sanitizers -------------------------
-function(vix_middleware_apply_sanitizers tgt scope)
-  if (VIX_ENABLE_SANITIZERS AND TARGET ${tgt})
-    message(STATUS "[middleware] enabling sanitizers on ${tgt} (${scope})")
-    if (${scope} STREQUAL "PRIVATE")
-      target_compile_options(${tgt} PRIVATE
-        -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined)
-      target_link_options(${tgt} PRIVATE
-        -fsanitize=address,undefined)
-    else()
-      target_compile_options(${tgt} INTERFACE
-        -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined)
-      target_link_options(${tgt} INTERFACE
-        -fsanitize=address,undefined)
-    endif()
-  endif()
-endfunction()
 
 # ============================== STATIC ===============================
 if (MIDDLEWARE_SOURCES)
   message(STATUS "[middleware] Building STATIC library with detected sources.")
 
   add_library(vix_middleware STATIC ${MIDDLEWARE_SOURCES})
+  if (TARGET vix_warnings)
+    target_link_libraries(vix_middleware PUBLIC vix_warnings)
+  endif()
 
   add_library(vix::middleware ALIAS vix_middleware)
   add_library(vix::mw         ALIAS vix_middleware)
-
   target_compile_features(vix_middleware PUBLIC cxx_std_20)
 
   target_include_directories(vix_middleware
@@ -144,7 +125,9 @@ if (MIDDLEWARE_SOURCES)
   )
 
   vix_middleware_try_link_json(vix_middleware PUBLIC)
-  vix_middleware_apply_sanitizers(vix_middleware PRIVATE)
+  if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
+    target_link_libraries(vix_middleware PUBLIC vix_sanitizers)
+  endif()
 
   set_target_properties(vix_middleware PROPERTIES
     OUTPUT_NAME vix_middleware
@@ -169,6 +152,10 @@ else()
 
   add_library(vix_middleware INTERFACE)
 
+  if (TARGET vix_warnings)
+    target_link_libraries(vix_middleware INTERFACE vix_warnings)
+  endif()
+
   add_library(vix::middleware ALIAS vix_middleware)
   add_library(vix::mw         ALIAS vix_middleware)
 
@@ -184,7 +171,9 @@ else()
   )
 
   vix_middleware_try_link_json(vix_middleware INTERFACE)
-  vix_middleware_apply_sanitizers(vix_middleware INTERFACE)
+  if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
+    target_link_libraries(vix_middleware INTERFACE vix_sanitizers)
+  endif()
 
   install(TARGETS vix_middleware
     EXPORT VixTargets
@@ -192,6 +181,14 @@ else()
   )
   install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
           FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
+endif()
+
+option(VIX_MIDDLEWARE_BUILD_TESTS "Build middleware tests" OFF)
+
+if (VIX_MIDDLEWARE_BUILD_TESTS)
+  include(CTest)
+  enable_testing()
+  add_subdirectory(tests)
 endif()
 
 # ----------------------------- Summary -------------------------------
