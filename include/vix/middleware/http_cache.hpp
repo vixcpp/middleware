@@ -97,7 +97,7 @@ namespace vix::middleware
     inline HttpMiddleware http_cache(std::shared_ptr<vix::http::cache::Cache> cache,
                                      HttpCacheOptions opt = {})
     {
-        return [cache = std::move(cache), opt = std::move(opt)](Request &req, Response &res, Next next)
+        return [cache = std::move(cache), opt = std::move(opt)](Request &req, Response &res, NextFn next)
         {
             if (!cache)
             {

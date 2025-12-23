@@ -41,3 +41,7 @@
 *.dwo
 build/
 cmd.md
+architecture.md
+vix.log
+examples/
+docs/
