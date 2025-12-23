@@ -1,1 +1,4 @@
-#include "vix/middleware/middleware.hpp"
+#include <vix/middleware/middleware.hpp>
+namespace vix::middleware
+{
+}
