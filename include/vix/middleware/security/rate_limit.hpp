@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -22,6 +23,7 @@ namespace vix::middleware::security
         double capacity{60.0};
         double refill_per_sec{1.0}; // 60/min => 1/sec
         bool add_headers{true};
+
         // key extraction
         std::string key_header{"x-forwarded-for"}; // by default: IP
         std::function<std::string(const vix::middleware::Request &)> key_fn{};
@@ -30,7 +32,7 @@ namespace vix::middleware::security
     struct RateLimiterState
     {
         std::mutex mu;
-        std::unordered_map<std::string, vix::middleware::utils::TokenBucket> buckets;
+        std::unordered_map<std::string, std::unique_ptr<vix::middleware::utils::TokenBucket>> buckets;
     };
 
     inline std::string trim_copy(std::string s)
@@ -72,6 +74,7 @@ namespace vix::middleware::security
         {
             static RateLimiterState fallback_global{};
             RateLimiterState *st = nullptr;
+
             // Services::get<T>() returns shared_ptr<T>
             if (auto svc = ctx.services().get<RateLimiterState>())
                 st = svc.get();
@@ -91,13 +94,11 @@ namespace vix::middleware::security
                 auto it = st->buckets.find(key);
                 if (it == st->buckets.end())
                 {
-                    it = st->buckets.emplace(
-                                        key,
-                                        vix::middleware::utils::TokenBucket(opt.capacity, opt.refill_per_sec))
-                             .first;
+                    auto ptr = std::make_unique<vix::middleware::utils::TokenBucket>(opt.capacity, opt.refill_per_sec);
+                    it = st->buckets.emplace(key, std::move(ptr)).first;
                 }
 
-                bucket_ptr = &it->second;
+                bucket_ptr = it->second.get();
             }
 
             // Consume 1 token

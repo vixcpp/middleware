@@ -1,13 +1,16 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <vix/middleware/middleware.hpp>
 #include <vix/middleware/core/hooks.hpp>
@@ -33,10 +36,30 @@ namespace vix::middleware::observability
     class InMemoryMetrics final : public IMetricsSink
     {
     public:
+        using Labels = std::vector<std::pair<std::string, std::string>>;
+
+        static Labels normalize_labels(std::unordered_map<std::string, std::string> labels)
+        {
+            Labels out;
+            out.reserve(labels.size());
+            for (auto &kv : labels)
+                out.emplace_back(std::move(kv.first), std::move(kv.second));
+
+            std::sort(out.begin(), out.end(),
+                      [](auto const &a, auto const &b)
+                      {
+                          if (a.first != b.first)
+                              return a.first < b.first;
+                          return a.second < b.second;
+                      });
+
+            return out;
+        }
+
         struct CounterKey
         {
             std::string name;
-            std::unordered_map<std::string, std::string> labels;
+            Labels labels; // sorted
 
             bool operator==(const CounterKey &o) const
             {
@@ -49,8 +72,10 @@ namespace vix::middleware::observability
             std::size_t operator()(const CounterKey &k) const noexcept
             {
                 std::size_t h = std::hash<std::string>{}(k.name);
-                for (auto &kv : k.labels)
+
+                for (auto const &kv : k.labels)
                 {
+                    // stable since labels are sorted
                     h ^= std::hash<std::string>{}(kv.first) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
                     h ^= std::hash<std::string>{}(kv.second) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
                 }
@@ -62,7 +87,9 @@ namespace vix::middleware::observability
                          std::unordered_map<std::string, std::string> labels = {},
                          std::uint64_t value = 1) override
         {
-            CounterKey k{std::string(name), std::move(labels)};
+            CounterKey k{std::string(name), normalize_labels(std::move(labels))};
+
+            std::lock_guard<std::mutex> lock(mu_);
             counters_[std::move(k)] += value;
         }
 
@@ -70,6 +97,7 @@ namespace vix::middleware::observability
                         double ms,
                         std::unordered_map<std::string, std::string> labels = {}) override
         {
+            std::lock_guard<std::mutex> lock(mu_);
             auto &r = observations_[std::string(name)];
             r.count++;
             r.last_ms = ms;
@@ -78,10 +106,13 @@ namespace vix::middleware::observability
 
         std::uint64_t counter(std::string_view name) const
         {
+            std::lock_guard<std::mutex> lock(mu_);
             std::uint64_t sum = 0;
-            for (auto &kv : counters_)
+            for (auto const &kv : counters_)
+            {
                 if (kv.first.name == name)
                     sum += kv.second;
+            }
             return sum;
         }
 
@@ -94,6 +125,7 @@ namespace vix::middleware::observability
 
         const Obs *last_observation(std::string_view name) const
         {
+            std::lock_guard<std::mutex> lock(mu_);
             auto it = observations_.find(std::string(name));
             if (it == observations_.end())
                 return nullptr;
@@ -101,6 +133,7 @@ namespace vix::middleware::observability
         }
 
     private:
+        mutable std::mutex mu_;
         std::unordered_map<CounterKey, std::uint64_t, CounterKeyHash> counters_{};
         std::unordered_map<std::string, Obs> observations_{};
     };
@@ -167,18 +200,20 @@ namespace vix::middleware::observability
     {
         vix::middleware::Hooks h;
 
-        h.on_begin = [sink, opt = std::move(opt)](vix::middleware::Context &ctx) mutable
+        auto optp = std::make_shared<MetricsOptions>(std::move(opt));
+
+        h.on_begin = [sink, optp](vix::middleware::Context &ctx)
         {
             if (!sink)
                 return;
 
             ctx.set_state(MetricsStartTime{std::chrono::steady_clock::now()});
 
-            const std::string base = opt.prefix + "_requests_total";
-            sink->inc_counter(base, base_labels(ctx.req(), opt), 1);
+            const std::string base = optp->prefix + "_requests_total";
+            sink->inc_counter(base, base_labels(ctx.req(), *optp), 1);
         };
 
-        h.on_end = [sink, opt = std::move(opt)](vix::middleware::Context &ctx) mutable
+        h.on_end = [sink, optp](vix::middleware::Context &ctx)
         {
             if (!sink)
                 return;
@@ -190,24 +225,23 @@ namespace vix::middleware::observability
             const auto t1 = std::chrono::steady_clock::now();
             const double ms = std::chrono::duration<double, std::milli>(t1 - st->t0).count();
 
-            const std::string dur = opt.prefix + "_request_duration_ms";
-            sink->observe_ms(dur, ms, end_labels(ctx.req(), ctx.res(), opt));
+            const std::string dur = optp->prefix + "_request_duration_ms";
+            sink->observe_ms(dur, ms, end_labels(ctx.req(), ctx.res(), *optp));
 
-            const std::string by_status = opt.prefix + "_responses_total";
-            sink->inc_counter(by_status, end_labels(ctx.req(), ctx.res(), opt), 1);
+            const std::string by_status = optp->prefix + "_responses_total";
+            sink->inc_counter(by_status, end_labels(ctx.req(), ctx.res(), *optp), 1);
         };
 
-        h.on_error = [sink, opt = std::move(opt)](vix::middleware::Context &ctx,
-                                                  const vix::middleware::Error &err) mutable
+        h.on_error = [sink, optp](vix::middleware::Context &ctx, const vix::middleware::Error &err)
         {
             if (!sink)
                 return;
 
-            auto labels = base_labels(ctx.req(), opt);
+            auto labels = base_labels(ctx.req(), *optp);
             labels["code"] = err.code;
             labels["status"] = std::to_string(err.status);
 
-            const std::string ex = opt.prefix + "_exceptions_total";
+            const std::string ex = optp->prefix + "_exceptions_total";
             sink->inc_counter(ex, std::move(labels), 1);
         };
 
@@ -217,8 +251,10 @@ namespace vix::middleware::observability
     inline vix::middleware::MiddlewareFn metrics_mw(std::shared_ptr<IMetricsSink> sink,
                                                     MetricsOptions opt = {})
     {
-        return [sink = std::move(sink), opt = std::move(opt)](vix::middleware::Context &ctx,
-                                                              vix::middleware::Next next) mutable
+        auto optp = std::make_shared<MetricsOptions>(std::move(opt));
+
+        return [sink = std::move(sink), optp](vix::middleware::Context &ctx,
+                                              vix::middleware::Next next)
         {
             if (!sink)
             {
@@ -227,7 +263,7 @@ namespace vix::middleware::observability
             }
 
             ctx.set_state(MetricsStartTime{std::chrono::steady_clock::now()});
-            sink->inc_counter(opt.prefix + "_requests_total", base_labels(ctx.req(), opt), 1);
+            sink->inc_counter(optp->prefix + "_requests_total", base_labels(ctx.req(), *optp), 1);
 
             next();
 
@@ -238,8 +274,8 @@ namespace vix::middleware::observability
             const auto t1 = std::chrono::steady_clock::now();
             const double ms = std::chrono::duration<double, std::milli>(t1 - st->t0).count();
 
-            sink->observe_ms(opt.prefix + "_request_duration_ms", ms, end_labels(ctx.req(), ctx.res(), opt));
-            sink->inc_counter(opt.prefix + "_responses_total", end_labels(ctx.req(), ctx.res(), opt), 1);
+            sink->observe_ms(optp->prefix + "_request_duration_ms", ms, end_labels(ctx.req(), ctx.res(), *optp));
+            sink->inc_counter(optp->prefix + "_responses_total", end_labels(ctx.req(), ctx.res(), *optp), 1);
         };
     }
 

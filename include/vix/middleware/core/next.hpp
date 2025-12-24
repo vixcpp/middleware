@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <type_traits>
 #include <utility>
 
 namespace vix::middleware
@@ -12,8 +13,20 @@ namespace vix::middleware
     public:
         Next() = default;
 
+        // Existing ctor (kept)
         explicit Next(NextFn fn)
             : fn_(std::move(fn))
+        {
+        }
+
+        // NEW: allow constructing Next from any callable convertible to NextFn
+        template <class F,
+                  class = std::enable_if_t<
+                      !std::is_same_v<std::decay_t<F>, Next> &&
+                      !std::is_same_v<std::decay_t<F>, NextFn> &&
+                      std::is_invocable_r_v<void, F>>>
+        Next(F &&f)
+            : fn_(NextFn(std::forward<F>(f)))
         {
         }
 

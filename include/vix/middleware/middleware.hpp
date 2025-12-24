@@ -51,23 +51,22 @@ namespace vix::middleware
 
     using Context = vix::middleware::Context;
     using MiddlewareFn = std::function<void(Context &, Next)>;
-    using HttpMiddleware = std::function<void(Request &, Response &, NextFn)>;
+    using HttpMiddleware = std::function<void(Request &, Response &, Next)>;
 
     inline MiddlewareFn from_http_middleware(HttpMiddleware legacy)
     {
         return [legacy = std::move(legacy)](Context &ctx, Next next) mutable
         {
-            legacy(ctx.req(), ctx.res(), NextFn([next]() mutable
-                                                { next(); }));
+            legacy(ctx.req(), ctx.res(), std::move(next));
         };
     }
 
     inline HttpMiddleware to_http_middleware(MiddlewareFn mw, Services &services)
     {
-        return [mw = std::move(mw), &services](Request &req, Response &res, NextFn next) mutable
+        return [mw = std::move(mw), &services](Request &req, Response &res, Next next) mutable
         {
             Context ctx(req, res, services);
-            mw(ctx, Next(std::move(next))); // Next == NextOnce
+            mw(ctx, std::move(next)); // NextOnce
         };
     }
 

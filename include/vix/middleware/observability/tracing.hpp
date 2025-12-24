@@ -1,14 +1,10 @@
 #pragma once
 
-#include <array>
-#include <chrono>
 #include <cstdint>
 #include <functional>
-#include <memory>
 #include <random>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
@@ -42,7 +38,7 @@ namespace vix::middleware::observability
         out.resize(16);
         for (int i = 15; i >= 0; --i)
         {
-            out[i] = kHex[v & 0xF];
+            out[static_cast<std::size_t>(i)] = kHex[v & 0xF];
             v >>= 4;
         }
         return out;
@@ -125,6 +121,7 @@ namespace vix::middleware::observability
     {
         vix::middleware::Hooks h;
 
+        // IMPORTANT: emit headers in on_begin (before handler commits response)
         h.on_begin = [opt = std::move(opt)](vix::middleware::Context &ctx) mutable
         {
             TraceContext tc = build_trace_ctx(ctx, opt);
@@ -132,15 +129,18 @@ namespace vix::middleware::observability
             if (opt.enrich)
                 opt.enrich(ctx, tc);
 
-            ctx.set_state(std::move(tc));
+            ctx.set_state(tc);
+
+            // emit early
+            emit_headers(ctx, tc, opt);
         };
 
+        // keep these for completeness; safe even if headers already set
         h.on_end = [opt = std::move(opt)](vix::middleware::Context &ctx) mutable
         {
             auto *tc = ctx.try_state<TraceContext>();
             if (!tc)
                 return;
-
             emit_headers(ctx, *tc, opt);
         };
 
@@ -149,7 +149,6 @@ namespace vix::middleware::observability
             auto *tc = ctx.try_state<TraceContext>();
             if (!tc)
                 return;
-
             emit_headers(ctx, *tc, opt);
         };
 
@@ -167,8 +166,12 @@ namespace vix::middleware::observability
 
             ctx.set_state(tc);
 
+            // IMPORTANT: emit before next() (before final handler commits response)
+            emit_headers(ctx, tc, opt);
+
             next();
 
+            // keep for completeness
             emit_headers(ctx, tc, opt);
         };
     }
