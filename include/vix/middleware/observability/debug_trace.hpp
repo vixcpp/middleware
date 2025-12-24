@@ -8,7 +8,6 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/core/hooks.hpp>
 #include <vix/middleware/observability/utils.hpp>
 
 namespace vix::middleware::observability
@@ -50,6 +49,7 @@ namespace vix::middleware::observability
 
     inline std::string build_line_begin(vix::middleware::Context &ctx, const DebugTraceOptions &opt)
     {
+        (void)ctx;
         std::string s;
         s.reserve(256);
         s += opt.prefix;
@@ -78,6 +78,7 @@ namespace vix::middleware::observability
                                       const DebugTraceOptions &opt,
                                       double ms)
     {
+        (void)ctx;
         std::string s;
         s.reserve(256);
         s += opt.prefix;
@@ -118,6 +119,7 @@ namespace vix::middleware::observability
 
         h.on_begin = [sink, opt = std::move(opt)](vix::middleware::Context &ctx) mutable
         {
+            (void)ctx;
             if (!sink)
                 return;
 
@@ -127,6 +129,7 @@ namespace vix::middleware::observability
 
         h.on_end = [sink, opt = std::move(opt)](vix::middleware::Context &ctx) mutable
         {
+            (void)ctx;
             if (!sink)
                 return;
 
@@ -143,6 +146,7 @@ namespace vix::middleware::observability
         h.on_error = [sink, opt = std::move(opt)](vix::middleware::Context &ctx,
                                                   const vix::middleware::Error &err) mutable
         {
+            (void)ctx;
             if (!sink)
                 return;
 
@@ -164,6 +168,7 @@ namespace vix::middleware::observability
         return [sink = std::move(sink), opt = std::move(opt)](vix::middleware::Context &ctx,
                                                               vix::middleware::Next next) mutable
         {
+            (void)ctx;
             if (!sink)
             {
                 next();

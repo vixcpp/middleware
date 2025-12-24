@@ -7,9 +7,6 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/result.hpp>
 
 namespace vix::middleware::basics
 {

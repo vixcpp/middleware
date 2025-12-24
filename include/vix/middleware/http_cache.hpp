@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <cctype>
 
 #include <boost/beast/http.hpp>
 
@@ -30,7 +31,7 @@ namespace vix::middleware
         bool allow_bypass{true};
         std::string bypass_header{"x-vix-cache"};
         std::string bypass_value{"bypass"};
-        std::function<vix::http::cache::CacheContext(Request &)> context_provider{};
+        std::function<vix::vhttp::cache::CacheContext(Request &)> context_provider{};
     };
 
     inline std::int64_t now_ms()
@@ -94,10 +95,12 @@ namespace vix::middleware
         return lower(v) == lower(opt.bypass_value);
     }
 
-    inline HttpMiddleware http_cache(std::shared_ptr<vix::http::cache::Cache> cache,
-                                     HttpCacheOptions opt = {})
+    inline HttpMiddleware http_cache(
+        std::shared_ptr<vix::vhttp::cache::Cache> cache,
+        HttpCacheOptions opt = {})
     {
-        return [cache = std::move(cache), opt = std::move(opt)](Request &req, Response &res, NextFn next)
+        return [cache = std::move(cache), opt = std::move(opt)](
+                   Request &req, Response &res, Next next) mutable
         {
             if (!cache)
             {
@@ -119,19 +122,14 @@ namespace vix::middleware
 
             const std::string query_raw = extract_query_raw_from_target(req.target());
             auto headers = request_headers_map(req);
-            vix::http::cache::HeaderUtil::normalizeInPlace(headers);
-            const std::string key = vix::http::cache::CacheKey::fromRequest(
-                req.method(), req.path(), query_raw, headers, opt.vary_headers);
-            vix::http::cache::CacheContext ctx{};
+            vix::vhttp::cache::HeaderUtil::normalizeInPlace(headers);
 
-            if (opt.context_provider)
-            {
-                ctx = opt.context_provider(req);
-            }
-            else
-            {
-                ctx = vix::http::cache::CacheContext::Online();
-            }
+            const std::string key = vix::vhttp::cache::CacheKey::fromRequest(
+                req.method(), req.path(), query_raw, headers, opt.vary_headers);
+
+            vix::vhttp::cache::CacheContext ctx =
+                opt.context_provider ? opt.context_provider(req)
+                                     : vix::vhttp::cache::CacheContext::Online();
 
             const std::int64_t t0 = now_ms();
 
@@ -139,30 +137,26 @@ namespace vix::middleware
             {
                 res.status(hit->status);
                 for (const auto &kv : hit->headers)
-                {
                     res.header(kv.first, kv.second);
-                }
 
                 res.send(hit->body);
                 return;
             }
 
-            next();
+            next(); // OK (NextOnce)
 
             auto &raw_res = res.res;
-            const int sc = static_cast<int>(raw_res.result_int());
+            const auto sc_u = raw_res.result_int(); // unsigned
 
-            if (opt.cache_200_only && sc != 200)
-            {
+            if (opt.cache_200_only && sc_u != 200u)
                 return;
-            }
+
+            const int sc = static_cast<int>(sc_u);
 
             if (opt.require_body && raw_res.body().empty())
-            {
                 return;
-            }
 
-            vix::http::cache::CacheEntry e;
+            vix::vhttp::cache::CacheEntry e;
             e.status = sc;
             e.body = raw_res.body();
             e.created_at_ms = t0;

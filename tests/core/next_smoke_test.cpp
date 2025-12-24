@@ -1,7 +1,7 @@
 #include <cassert>
 #include <iostream>
 
-#include <vix/middleware/core/next.hpp>
+#include <vix/middleware/middleware.hpp>
 
 using namespace vix::middleware;
 

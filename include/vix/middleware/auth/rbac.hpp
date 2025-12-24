@@ -11,11 +11,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/result.hpp>
-#include <vix/middleware/middleware.hpp>
-
 #include <vix/middleware/auth/jwt.hpp> // JwtClaims
 
 namespace vix::middleware::auth

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <vix/middleware/core/result.hpp>
+#include <vix/middleware/middleware.hpp>
 
 using namespace vix::middleware;
 

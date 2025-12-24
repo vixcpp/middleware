@@ -33,9 +33,9 @@ static vix::vhttp::RawRequest make_req(
     return req;
 }
 
-static std::shared_ptr<vix::http::cache::Cache> make_cache()
+static std::shared_ptr<vix::vhttp::cache::Cache> make_cache()
 {
-    using namespace vix::http::cache;
+    using namespace vix::vhttp::cache;
 
     auto store = std::make_shared<MemoryStore>();
     CachePolicy policy;
@@ -46,7 +46,7 @@ static std::shared_ptr<vix::http::cache::Cache> make_cache()
 static std::string compute_key_for(const vix::vhttp::Request &req,
                                    const HttpCacheOptions &opt)
 {
-    using namespace vix::http::cache;
+    using namespace vix::vhttp::cache;
 
     const std::string query_raw = extract_query_raw_from_target(req.target());
 
@@ -71,7 +71,7 @@ static std::string compute_key_for(const vix::vhttp::Request &req,
 static void test_cache_hit_serves_response()
 {
     namespace http = boost::beast::http;
-    using namespace vix::http::cache;
+    using namespace vix::vhttp::cache;
 
     auto cache = make_cache();
 
@@ -111,7 +111,7 @@ static void test_cache_hit_serves_response()
 static void test_cache_miss_then_put_on_200()
 {
     namespace http = boost::beast::http;
-    using namespace vix::http::cache;
+    using namespace vix::vhttp::cache;
 
     auto cache = make_cache();
 

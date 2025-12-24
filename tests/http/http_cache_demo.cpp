@@ -11,7 +11,7 @@
 
 // int main()
 // {
-//     using namespace vix::http::cache;
+//     using namespace vix::vhttp::cache;
 
 //     // 1) Create cache
 //     auto store = std::make_shared<MemoryStore>();

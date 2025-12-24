@@ -1,57 +1,40 @@
 #pragma once
 
 #include <functional>
-#include <memory>
-#include <typeindex>
-#include <unordered_map>
 #include <utility>
 
 #include <vix/http/RequestHandler.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/result.hpp>
-#include <vix/middleware/core/hooks.hpp>
+
+// primitives live in core now
+#include <vix/mw/next.hpp>
+#include <vix/mw/context.hpp>
+#include <vix/mw/result.hpp>
+#include <vix/mw/hooks.hpp>
 
 namespace vix::middleware
 {
     using Request = vix::vhttp::Request;
     using Response = vix::vhttp::ResponseWrapper;
-    using NextFn = vix::middleware::NextFn;
-    using Error = vix::middleware::Error;
-
-    class Services final
-    {
-    public:
-        Services() = default;
-
-        template <typename T>
-        void provide(std::shared_ptr<T> svc)
-        {
-            data_[std::type_index(typeid(T))] = std::move(svc);
-        }
-
-        template <typename T>
-        std::shared_ptr<T> get() const
-        {
-            auto it = data_.find(std::type_index(typeid(T)));
-            if (it == data_.end())
-                return {};
-            return std::static_pointer_cast<T>(it->second);
-        }
-
-        template <typename T>
-        bool has() const
-        {
-            return data_.find(std::type_index(typeid(T))) != data_.end();
-        }
-
-    private:
-        std::unordered_map<std::type_index, std::shared_ptr<void>> data_{};
-    };
-
-    using Context = vix::middleware::Context;
+    using NextFn = vix::mw::NextFn;
+    using Next = vix::mw::Next;
+    using NextOnce = vix::mw::NextOnce;
+    using Error = vix::mw::Error;
+    using Services = vix::mw::Services;
+    using Context = vix::mw::Context;
     using MiddlewareFn = std::function<void(Context &, Next)>;
     using HttpMiddleware = std::function<void(Request &, Response &, Next)>;
+    using Hooks = vix::mw::Hooks;
+    using vix::mw::bad_request;
+    using vix::mw::conflict;
+    using vix::mw::fail;
+    using vix::mw::forbidden;
+    using vix::mw::internal;
+    using vix::mw::merge_hooks;
+    using vix::mw::normalize;
+    using vix::mw::not_found;
+    using vix::mw::ok;
+    using vix::mw::to_json;
+    using vix::mw::unauthorized;
 
     inline MiddlewareFn from_http_middleware(HttpMiddleware legacy)
     {
@@ -66,7 +49,7 @@ namespace vix::middleware
         return [mw = std::move(mw), &services](Request &req, Response &res, Next next) mutable
         {
             Context ctx(req, res, services);
-            mw(ctx, std::move(next)); // NextOnce
+            mw(ctx, std::move(next));
         };
     }
 

@@ -8,10 +8,6 @@
 #include <vector>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/hooks.hpp>
-#include <vix/middleware/core/result.hpp>
 #include <vix/middleware/observability/tracing.hpp>
 #include <vix/middleware/observability/metrics.hpp>
 #include <vix/middleware/observability/debug_trace.hpp>
