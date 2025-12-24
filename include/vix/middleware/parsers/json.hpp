@@ -7,9 +7,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/result.hpp>
 #include <vix/middleware/middleware.hpp>
 
 namespace vix::middleware::parsers
@@ -23,7 +20,7 @@ namespace vix::middleware::parsers
     {
         bool require_content_type{true};
         bool allow_empty{true};
-        std::size_t max_bytes{0}; // 0 => no limit (body_limit middleware can handle globally)
+        std::size_t max_bytes{0};  // 0 => no limit (body_limit middleware can handle globally)
         bool store_in_state{true}; // store JsonBody in ctx.state
     };
 

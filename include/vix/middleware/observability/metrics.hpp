@@ -13,8 +13,6 @@
 #include <vector>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/core/hooks.hpp>
-#include <vix/middleware/core/result.hpp>
 #include <vix/middleware/observability/utils.hpp>
 
 namespace vix::middleware::observability

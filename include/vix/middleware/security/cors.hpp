@@ -6,9 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/next.hpp>
-#include <vix/middleware/core/result.hpp>
 #include <vix/middleware/middleware.hpp>
 
 namespace vix::middleware::security

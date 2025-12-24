@@ -5,7 +5,7 @@
 #include <boost/beast/http.hpp>
 
 #include <vix/middleware/pipeline.hpp>
-#include <vix/middleware/core/hooks.hpp>
+#include <vix/middleware/middleware.hpp>
 
 using namespace vix::middleware;
 

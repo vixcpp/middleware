@@ -8,7 +8,6 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/core/hooks.hpp>
 
 namespace vix::middleware::observability
 {

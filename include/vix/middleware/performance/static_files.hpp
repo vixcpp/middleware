@@ -7,8 +7,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include <vix/middleware/core/context.hpp>
-#include <vix/middleware/core/next.hpp>
 #include <vix/middleware/middleware.hpp>
 
 namespace vix::middleware::performance
