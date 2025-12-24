@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
+#include <vix/middleware/basics/detail/ascii.hpp>
 
 namespace vix::middleware::basics
 {
@@ -24,17 +25,6 @@ namespace vix::middleware::basics
         bool generate_if_missing{true};
         bool always_set_response_header{true};
     };
-
-    inline std::string to_lower_ascii(std::string s)
-    {
-        for (char &c : s)
-        {
-            const unsigned char u = static_cast<unsigned char>(c);
-            if (u >= 'A' && u <= 'Z')
-                c = static_cast<char>(u - 'A' + 'a');
-        }
-        return s;
-    }
 
     inline bool is_reasonable_request_id(std::string_view s)
     {
@@ -96,7 +86,7 @@ namespace vix::middleware::basics
         return [opt = std::move(opt)](Context &ctx, Next next)
         {
             // Normalize header name for reading/writing usage
-            const std::string header = to_lower_ascii(opt.header_name);
+            const std::string header = vix::middleware::basics::detail::to_lower_ascii(opt.header_name);
 
             std::string rid;
 
