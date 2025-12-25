@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include <vix/middleware/middleware.hpp>
+#include <vix/middleware/helpers/strings/strings.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -23,25 +24,6 @@ namespace vix::middleware::parsers
         std::size_t max_bytes{0};  // 0 => no limit (body_limit middleware can handle globally)
         bool store_in_state{true}; // store JsonBody in ctx.state
     };
-
-    inline bool starts_with_icase(std::string_view s, std::string_view prefix)
-    {
-        if (s.size() < prefix.size())
-            return false;
-
-        for (std::size_t i = 0; i < prefix.size(); ++i)
-        {
-            unsigned char a = static_cast<unsigned char>(s[i]);
-            unsigned char b = static_cast<unsigned char>(prefix[i]);
-            if (a >= 'A' && a <= 'Z')
-                a = static_cast<unsigned char>(a - 'A' + 'a');
-            if (b >= 'A' && b <= 'Z')
-                b = static_cast<unsigned char>(b - 'A' + 'a');
-            if (a != b)
-                return false;
-        }
-        return true;
-    }
 
     inline MiddlewareFn json(JsonParserOptions opt = {})
     {
@@ -89,7 +71,7 @@ namespace vix::middleware::parsers
             {
                 const std::string ct = req.header("content-type");
                 // accept "application/json" and "application/json; charset=utf-8"
-                if (ct.empty() || !starts_with_icase(ct, "application/json"))
+                if (ct.empty() || !helpers::strings::starts_with_icase(ct, "application/json"))
                 {
                     Error e;
                     e.status = 415;

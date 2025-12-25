@@ -16,6 +16,7 @@ namespace vix::middleware::security
         std::vector<std::string> allowed_origins{};
         bool allow_any_origin{true};
         bool allow_credentials{false};
+
         // Preflight config
         std::vector<std::string> allow_methods{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"};
         std::vector<std::string> allow_headers{"Content-Type", "Authorization"};
@@ -73,6 +74,41 @@ namespace vix::middleware::security
         return false;
     }
 
+    // Read a header in a case-tolerant way (because Request::header() may be case-sensitive)
+    inline std::string header_any_case(const vix::middleware::Request &req, std::string_view name)
+    {
+        // Try original
+        std::string v = req.header(std::string(name));
+        if (!v.empty())
+            return v;
+
+        // Try lowercase
+        std::string lower(name);
+        for (char &c : lower)
+        {
+            if (c >= 'A' && c <= 'Z')
+                c = static_cast<char>(c - 'A' + 'a');
+        }
+        v = req.header(lower);
+        if (!v.empty())
+            return v;
+
+        // Try "Title-Case" variant (simple: first letter + after '-' uppercase)
+        std::string title(name);
+        bool cap = true;
+        for (char &c : title)
+        {
+            if (cap && c >= 'a' && c <= 'z')
+                c = static_cast<char>(c - 'a' + 'A');
+            else if (!cap && c >= 'A' && c <= 'Z')
+                c = static_cast<char>(c - 'A' + 'a');
+
+            cap = (c == '-');
+        }
+        v = req.header(title);
+        return v;
+    }
+
     inline MiddlewareFn cors(CorsOptions opt = {})
     {
         return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -80,13 +116,32 @@ namespace vix::middleware::security
             auto &req = ctx.req();
             auto &res = ctx.res();
 
-            const std::string origin = req.header("origin");
+            // IMPORTANT: use case-tolerant reads
+            const std::string origin = header_any_case(req, "Origin");
             const bool has_origin = !origin.empty();
             const bool allowed = has_origin ? origin_allowed(origin, opt) : false;
 
             const bool is_options = iequals(req.method(), "OPTIONS");
-            const std::string acrm = req.header("access-control-request-method");
+            const std::string acrm = header_any_case(req, "Access-Control-Request-Method");
             const bool is_preflight = is_options && !acrm.empty();
+
+            const bool wildcard_ok =
+                (opt.allow_any_origin && opt.allowed_origins.empty() && !opt.allow_credentials);
+
+            // Helper: set common CORS headers (used for preflight and normal)
+            auto apply_common = [&]()
+            {
+                res.header("Access-Control-Allow-Origin", wildcard_ok ? "*" : origin);
+
+                if (opt.allow_credentials)
+                    res.header("Access-Control-Allow-Credentials", "true");
+
+                if (!opt.expose_headers.empty())
+                    res.header("Access-Control-Expose-Headers", join_csv(opt.expose_headers));
+
+                if (opt.vary_origin)
+                    res.append("Vary", "Origin");
+            };
 
             if (is_preflight)
             {
@@ -101,16 +156,20 @@ namespace vix::middleware::security
                     return;
                 }
 
-                res.status(204);
-                res.header("Access-Control-Allow-Origin", (opt.allow_any_origin && !opt.allow_credentials) ? "*" : origin);
-                res.header("Access-Control-Allow-Methods", join_csv(opt.allow_methods));
-                res.header("Access-Control-Allow-Headers", join_csv(opt.allow_headers));
-                res.header("Access-Control-Max-Age", std::to_string(opt.max_age_seconds));
-                if (opt.allow_credentials)
-                    res.header("Access-Control-Allow-Credentials", "true");
-                if (opt.vary_origin)
-                    res.append("Vary", "Origin");
+                // MUST set CORS headers on the preflight response
+                apply_common();
 
+                res.status(204);
+                res.header("Access-Control-Allow-Methods", join_csv(opt.allow_methods));
+
+                // If allow_headers configured, use it; otherwise echo request headers
+                const std::string acrh = header_any_case(req, "Access-Control-Request-Headers");
+                if (!opt.allow_headers.empty())
+                    res.header("Access-Control-Allow-Headers", join_csv(opt.allow_headers));
+                else if (!acrh.empty())
+                    res.header("Access-Control-Allow-Headers", acrh);
+
+                res.header("Access-Control-Max-Age", std::to_string(opt.max_age_seconds));
                 res.send(); // finalize empty
                 return;
             }
@@ -120,17 +179,10 @@ namespace vix::middleware::security
 
             if (!has_origin)
                 return;
-
             if (!allowed)
-                return; // silently no CORS headers
+                return;
 
-            res.header("Access-Control-Allow-Origin", (opt.allow_any_origin && !opt.allow_credentials) ? "*" : origin);
-            if (opt.allow_credentials)
-                res.header("Access-Control-Allow-Credentials", "true");
-            if (!opt.expose_headers.empty())
-                res.header("Access-Control-Expose-Headers", join_csv(opt.expose_headers));
-            if (opt.vary_origin)
-                res.append("Vary", "Origin");
+            apply_common();
         };
     }
 

@@ -6,7 +6,7 @@ namespace vix::middleware::app
 {
     using HttpCacheConfig = HttpCacheAppConfig;
 
-    inline auto http_cache(HttpCacheConfig cfg = {})
+    inline vix::App::Middleware http_cache(HttpCacheConfig cfg = {})
     {
         return http_cache_mw(std::move(cfg));
     }

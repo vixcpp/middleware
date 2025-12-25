@@ -43,11 +43,3 @@ int main()
     std::cout << "[OK] multipart info\n";
     return 0;
 }
-
-// Next (choix)
-
-// parsers/json.hpp v2 : ctx.json() helper + schema checks (required fields) + 422 validation_error (FastAPI style)
-
-// multipart v2 : vrai parsing des parts + extraction fichiers en mémoire/tempfile + streaming
-
-// Dis-moi “go json v2” ou “go multipart v2”.

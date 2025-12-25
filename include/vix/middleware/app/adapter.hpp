@@ -2,26 +2,58 @@
 
 #include <string>
 #include <utility>
+
 #include <vix/app/App.hpp>
 #include <vix/mw/next.hpp>
+#include <vix/mw/context.hpp>
 #include <vix/middleware/middleware.hpp>
 
 namespace vix::middleware::app
 {
+    // ---------------------------------------------------------------------
+    // Adapt legacy HttpMiddleware(Request&, Response&, Next)
+    // ---------------------------------------------------------------------
     inline vix::App::Middleware adapt(vix::middleware::HttpMiddleware inner)
     {
-        return [inner = std::move(inner)](vix::Request &req, vix::Response &res, vix::App::Next next) mutable
+        return [inner = std::move(inner)](
+                   vix::Request &req,
+                   vix::Response &res,
+                   vix::App::Next next) mutable
         {
             vix::mw::Next mw_next(std::move(next));
             inner(req, res, std::move(mw_next));
         };
     }
 
-    // (ex: only GET, only /api/*, etc.)
+    // ---------------------------------------------------------------------
+    // Adapt Context-based middleware (MiddlewareFn(Context&, Next))
+    // Ex: auth::jwt(opt), auth::api_key(opt), rbac, etc.
+    // ---------------------------------------------------------------------
+    inline vix::App::Middleware adapt_ctx(vix::middleware::MiddlewareFn inner)
+    {
+        return [inner = std::move(inner),
+                services = vix::mw::Services{}](
+                   vix::Request &req,
+                   vix::Response &res,
+                   vix::App::Next next) mutable
+        {
+            vix::mw::Context ctx(req, res, services);
+            vix::mw::Next mw_next(std::move(next));
+            inner(ctx, std::move(mw_next));
+        };
+    }
+
+    // ---------------------------------------------------------------------
+    // Conditional middleware (predicate on Request)
+    // ---------------------------------------------------------------------
     template <class Pred>
     inline vix::App::Middleware when(Pred pred, vix::App::Middleware mw)
     {
-        return [pred = std::move(pred), mw = std::move(mw)](vix::Request &req, vix::Response &res, vix::App::Next next) mutable
+        return [pred = std::move(pred),
+                mw = std::move(mw)](
+                   vix::Request &req,
+                   vix::Response &res,
+                   vix::App::Next next) mutable
         {
             if (!pred(req))
             {
@@ -32,12 +64,59 @@ namespace vix::middleware::app
         };
     }
 
-    // Install (global or scoped)
+    // ---------------------------------------------------------------------
+    // Build middleware protecting EXACT path
+    // ---------------------------------------------------------------------
+    inline vix::App::Middleware protect_path(std::string path,
+                                             vix::App::Middleware mw)
+    {
+        return when(
+            [path = std::move(path)](const vix::Request &req)
+            {
+                return req.path() == path;
+            },
+            std::move(mw));
+    }
+
+    // ---------------------------------------------------------------------
+    // Build middleware protecting PREFIX ("/api/", "/secure", etc.)
+    // ---------------------------------------------------------------------
+    inline vix::App::Middleware protect_prefix_mw(std::string prefix,
+                                                  vix::App::Middleware mw)
+    {
+        return when(
+            [prefix = std::move(prefix)](const vix::Request &req)
+            {
+                return req.path().rfind(prefix, 0) == 0; // starts_with
+            },
+            std::move(mw));
+    }
+
+    // Install helpers (ergonomic)
+    inline void protect(vix::App &app,
+                        std::string exact_path,
+                        vix::App::Middleware mw)
+    {
+        app.use(protect_path(std::move(exact_path), std::move(mw)));
+    }
+
+    inline void protect_prefix(vix::App &app,
+                               std::string prefix,
+                               vix::App::Middleware mw)
+    {
+        app.use(protect_prefix_mw(std::move(prefix), std::move(mw)));
+    }
+
+    // Install helpers (ergonomic) - "prefix scoped" and "exact"
     inline void install(vix::App &app, std::string prefix, vix::App::Middleware mw)
     {
-        if (!prefix.empty())
-            app.use(std::move(prefix), std::move(mw));
-        else
-            app.use(std::move(mw));
+        // Prefix-scoped middleware (App already supports this)
+        app.use(std::move(prefix), std::move(mw));
+    }
+
+    inline void install_exact(vix::App &app, std::string exact_path, vix::App::Middleware mw)
+    {
+        // Exact match
+        protect(app, std::move(exact_path), std::move(mw));
     }
 }
