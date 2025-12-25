@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
+#include <vix/middleware/helpers/strings/strings.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -21,25 +22,6 @@ namespace vix::middleware::parsers
         std::size_t max_bytes{0}; // 0 => no limit
         bool store_in_state{true};
     };
-
-    inline bool starts_with_icase(std::string_view s, std::string_view prefix)
-    {
-        if (s.size() < prefix.size())
-            return false;
-
-        for (std::size_t i = 0; i < prefix.size(); ++i)
-        {
-            unsigned char a = static_cast<unsigned char>(s[i]);
-            unsigned char b = static_cast<unsigned char>(prefix[i]);
-            if (a >= 'A' && a <= 'Z')
-                a = static_cast<unsigned char>(a - 'A' + 'a');
-            if (b >= 'A' && b <= 'Z')
-                b = static_cast<unsigned char>(b - 'A' + 'a');
-            if (a != b)
-                return false;
-        }
-        return true;
-    }
 
     inline std::string url_decode(std::string_view in)
     {
@@ -153,7 +135,7 @@ namespace vix::middleware::parsers
             if (opt.require_content_type)
             {
                 const std::string ct = req.header("content-type");
-                if (ct.empty() || !starts_with_icase(ct, "application/x-www-form-urlencoded"))
+                if (ct.empty() || !helpers::strings::starts_with_icase(ct, "application/x-www-form-urlencoded"))
                 {
                     Error e;
                     e.status = 415;

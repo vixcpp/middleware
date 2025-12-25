@@ -62,7 +62,8 @@ namespace vix::middleware
         return h;
     }
 
-    inline std::unordered_map<std::string, std::string> response_headers_map(http::response<http::string_body> &res)
+    inline std::unordered_map<std::string, std::string>
+    response_headers_map(http::response<http::string_body> &res)
     {
         std::unordered_map<std::string, std::string> h;
         for (auto const &field : res.base())
@@ -95,6 +96,20 @@ namespace vix::middleware
         return lower(v) == lower(opt.bypass_value);
     }
 
+    inline bool ieq_ascii(std::string_view a, std::string_view b)
+    {
+        if (a.size() != b.size())
+            return false;
+        for (size_t i = 0; i < a.size(); ++i)
+        {
+            unsigned char ca = static_cast<unsigned char>(a[i]);
+            unsigned char cb = static_cast<unsigned char>(b[i]);
+            if (std::tolower(ca) != std::tolower(cb))
+                return false;
+        }
+        return true;
+    }
+
     inline HttpMiddleware http_cache(
         std::shared_ptr<vix::vhttp::cache::Cache> cache,
         HttpCacheOptions opt = {})
@@ -108,24 +123,28 @@ namespace vix::middleware
                 return;
             }
 
+            // keep it strict (GET only) — app layer also has only_get, but safe here
             if (req.method() != "GET")
             {
                 next();
                 return;
             }
 
+            // bypass: skip cache entirely
             if (has_bypass(req, opt))
             {
                 next();
+                // debug header (optional but helpful)
+                res.header("x-vix-cache-status", "bypass");
                 return;
             }
 
             const std::string query_raw = extract_query_raw_from_target(req.target());
-            auto headers = request_headers_map(req);
-            vix::vhttp::cache::HeaderUtil::normalizeInPlace(headers);
+            auto req_headers = request_headers_map(req);
+            vix::vhttp::cache::HeaderUtil::normalizeInPlace(req_headers);
 
             const std::string key = vix::vhttp::cache::CacheKey::fromRequest(
-                req.method(), req.path(), query_raw, headers, opt.vary_headers);
+                req.method(), req.path(), query_raw, req_headers, opt.vary_headers);
 
             vix::vhttp::cache::CacheContext ctx =
                 opt.context_provider ? opt.context_provider(req)
@@ -133,34 +152,59 @@ namespace vix::middleware
 
             const std::int64_t t0 = now_ms();
 
+            // HIT: replay cached response
             if (auto hit = cache->get(key, t0, ctx))
             {
-                res.status(hit->status);
-                for (const auto &kv : hit->headers)
-                    res.header(kv.first, kv.second);
+                auto &raw_res = res.res;
 
-                res.send(hit->body);
+                // status
+                raw_res.result(static_cast<http::status>(hit->status));
+
+                // restore headers (skip content-length, we will recompute)
+                for (const auto &kv : hit->headers)
+                {
+                    if (ieq_ascii(kv.first, "content-length"))
+                        continue;
+
+                    // write directly to beast response (won't be overridden by res.send)
+                    raw_res.set(kv.first, kv.second);
+                }
+
+                raw_res.set("x-vix-cache-status", "hit");
+
+                // body
+                raw_res.body() = hit->body;
+                raw_res.prepare_payload(); // recalculates content-length
                 return;
             }
 
+            // MISS: let handler generate response, then cache it
             next(); // OK (NextOnce)
 
+            // At this point, res.res is finalized by handlers like res.json()
             auto &raw_res = res.res;
-            const auto sc_u = raw_res.result_int(); // unsigned
+            const auto sc_u = raw_res.result_int();
+
+            // always helpful to debug
+            res.header("x-vix-cache-status", "miss");
 
             if (opt.cache_200_only && sc_u != 200u)
                 return;
-
-            const int sc = static_cast<int>(sc_u);
 
             if (opt.require_body && raw_res.body().empty())
                 return;
 
             vix::vhttp::cache::CacheEntry e;
-            e.status = sc;
+            e.status = static_cast<int>(sc_u);
             e.body = raw_res.body();
             e.created_at_ms = t0;
+
+            // capture + normalize headers so we can reliably replay content-type, etc.
             e.headers = response_headers_map(raw_res);
+            vix::vhttp::cache::HeaderUtil::normalizeInPlace(e.headers);
+
+            // store our own debug marker too (not required, but can be useful)
+            // e.headers["x-vix-cache-status"] = "hit";
 
             cache->put(key, e);
         };
