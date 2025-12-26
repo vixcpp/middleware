@@ -14,15 +14,19 @@
 #include <vix/middleware/app/adapter.hpp> // adapt_ctx()
 #include <vix/middleware/security/cors.hpp>
 #include <vix/middleware/security/rate_limit.hpp>
+#include <vix/middleware/security/csrf.hpp>
+#include <vix/middleware/security/headers.hpp>
+#include <vix/middleware/security/ip_filter.hpp>
+#include <vix/middleware/basics/body_limit.hpp>
 
 #include <vix/middleware/parsers/form.hpp>
 #include <vix/middleware/parsers/json.hpp>
 #include <vix/middleware/parsers/multipart.hpp>
 #include <vix/middleware/parsers/multipart_save.hpp>
-
-#ifdef VIX_ENABLE_JWT
 #include <vix/middleware/auth/jwt.hpp>
-#endif
+#include <vix/middleware/auth/api_key.hpp>
+#include <vix/middleware/auth/rbac.hpp>
+#include <vix/middleware/app/app_middleware.hpp>
 
 namespace vix::middleware::app
 {
@@ -30,6 +34,159 @@ namespace vix::middleware::app
     inline std::vector<std::string> _to_vec(std::initializer_list<std::string> xs)
     {
         return {xs.begin(), xs.end()};
+    }
+
+    // body_limit_dev() — Body limit preset with optional should_apply predicate
+    inline vix::App::Middleware body_limit_dev(
+        std::size_t max_bytes = 16,
+        bool apply_to_get = false,
+        bool allow_chunked = true,
+        std::function<bool(const vix::middleware::Context &)> should_apply = {})
+    {
+        vix::middleware::basics::BodyLimitOptions opt{};
+        opt.max_bytes = max_bytes;
+        opt.apply_to_get = apply_to_get;
+        opt.allow_chunked = allow_chunked;
+        opt.should_apply = std::move(should_apply);
+
+        return adapt_ctx(vix::middleware::basics::body_limit(std::move(opt)));
+    }
+
+    inline vix::App::Middleware body_limit_write_dev(std::size_t max_bytes)
+    {
+        return body_limit_dev(max_bytes, false, true,
+                              [](const vix::middleware::Context &ctx)
+                              {
+                                  const auto m = ctx.req().method();
+                                  return (m == "POST" || m == "PUT" || m == "PATCH");
+                              });
+    }
+
+    inline vix::App::Middleware ip_filter_allow_deny_dev(
+        std::string header_name,
+        std::initializer_list<std::string> allow,
+        std::initializer_list<std::string> deny,
+        bool use_remote_addr_fallback = true)
+    {
+        vix::middleware::security::IpFilterOptions opt{};
+        opt.header_name = std::move(header_name);
+        opt.allow = _to_vec(allow);
+        opt.deny = _to_vec(deny);
+        opt.use_remote_addr_fallback = use_remote_addr_fallback;
+
+        return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
+    }
+
+    inline vix::App::Middleware ip_filter_dev(
+        std::string header_name = "x-vix-ip",
+        std::initializer_list<std::string> deny = {"1.2.3.4"},
+        bool use_remote_addr_fallback = true)
+    {
+        vix::middleware::security::IpFilterOptions opt{};
+        opt.header_name = std::move(header_name);
+        opt.deny = _to_vec(deny);
+        opt.use_remote_addr_fallback = use_remote_addr_fallback;
+
+        return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
+    }
+
+    // cors_ip_demo() — cors_dev + allow "X-Vix-Ip" for demo
+    inline vix::App::Middleware cors_ip_demo(
+        std::initializer_list<std::string> origins = {
+            "http://localhost:5173",
+            "http://0.0.0.0:5173",
+            "https://example.com"})
+    {
+        vix::middleware::security::CorsOptions opt{};
+        opt.allowed_origins = _to_vec(origins);
+        opt.allow_any_origin = false;
+        opt.allow_credentials = true;
+
+        opt.allow_headers = {
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "X-Vix-Ip",
+            "Accept",
+            "Origin"};
+
+        opt.allow_methods = {"GET", "POST", "OPTIONS"};
+        opt.expose_headers = {"X-Request-Id"};
+
+        return adapt_ctx(vix::middleware::security::cors(std::move(opt)));
+    }
+
+    inline vix::App::Middleware ip_allowlist_dev(
+        std::string header_name,
+        std::initializer_list<std::string> allow,
+        bool use_remote_addr_fallback = true)
+    {
+        vix::middleware::security::IpFilterOptions opt{};
+        opt.header_name = std::move(header_name);
+        opt.allow = _to_vec(allow);
+        opt.use_remote_addr_fallback = use_remote_addr_fallback;
+
+        return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
+    }
+
+    inline vix::App::Middleware rate_limit_custom_dev(
+        double capacity,
+        double refill_per_sec,
+        std::string key_header = "x-forwarded-for",
+        bool add_headers = true)
+    {
+        vix::middleware::security::RateLimitOptions opt{};
+        opt.capacity = capacity;
+        opt.refill_per_sec = refill_per_sec;
+        opt.add_headers = add_headers;
+        opt.key_header = std::move(key_header);
+        return adapt_ctx(vix::middleware::security::rate_limit(std::move(opt)));
+    }
+
+    // security_headers_dev()
+    // Default: sane security headers for HTTP dev mode
+    inline vix::App::Middleware security_headers_dev(
+        bool hsts = false // OFF by default (HTTP dev)
+    )
+    {
+        vix::middleware::security::SecurityHeadersOptions opt{};
+        opt.x_content_type_options = true;
+        opt.x_frame_options = true;
+        opt.referrer_policy = true;
+        opt.permissions_policy = true;
+        opt.hsts = hsts;
+
+        // CSP intentionally left empty for dev
+        // opt.content_security_policy = "...";
+
+        return adapt_ctx(vix::middleware::security::headers(std::move(opt)));
+    }
+
+    // csrf_dev()  (CSRF preset)
+    inline vix::App::Middleware csrf_dev(
+        std::string cookie_name = "csrf_token",
+        std::string header_name = "x-csrf-token",
+        bool protect_get = false)
+    {
+        vix::middleware::security::CsrfOptions opt{};
+        opt.cookie_name = std::move(cookie_name);
+        opt.header_name = std::move(header_name);
+        opt.protect_get = protect_get;
+
+        return adapt_ctx(vix::middleware::security::csrf(std::move(opt)));
+    }
+
+    // csrf_strict_dev() — protect GET too (strict mode)
+    inline vix::App::Middleware csrf_strict_dev(
+        std::string cookie_name = "csrf_token",
+        std::string header_name = "x-csrf-token")
+    {
+        return csrf_dev(std::move(cookie_name), std::move(header_name), true);
+    }
+
+    inline void use_on_prefix(vix::App &app, std::string prefix, vix::App::Middleware mw)
+    {
+        install(app, std::move(prefix), std::move(mw));
     }
 
     // cors_dev()
@@ -171,7 +328,6 @@ namespace vix::middleware::app
              "fields", vix::json::obj(std::move(fields_flat))});
     }
 
-#ifdef VIX_ENABLE_JWT
     // jwt_auth()
     inline vix::App::Middleware jwt_auth(std::string secret)
     {
@@ -184,7 +340,45 @@ namespace vix::middleware::app
     {
         return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
     }
-#endif
+
+    // jwt_dev() — JWT preset for dev (verify_exp configurable)
+    inline vix::App::Middleware jwt_dev(
+        std::string secret,
+        bool verify_exp = false)
+    {
+        vix::middleware::auth::JwtOptions opt{};
+        opt.secret = std::move(secret);
+        opt.verify_exp = verify_exp;
+
+        return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
+    }
+
+    // API Key auth preset (App-level)
+    inline vix::App::Middleware api_key_auth(
+        vix::middleware::auth::ApiKeyOptions opt)
+    {
+        return adapt_ctx(
+            vix::middleware::auth::api_key(std::move(opt)));
+    }
+
+    // Dev shortcut (single key)
+    inline vix::App::Middleware api_key_dev(std::string key)
+    {
+        vix::middleware::auth::ApiKeyOptions opt{};
+        opt.header = "x-api-key";
+        opt.query_param = "api_key";
+        opt.required = true;
+        opt.allowed_keys.insert(std::move(key));
+
+        return api_key_auth(std::move(opt));
+    }
+
+    inline vix::App::Middleware rbac_admin()
+    {
+        return chain(
+            adapt_ctx(auth::rbac_context()),
+            adapt_ctx(auth::require_role("admin")));
+    }
 
 } // namespace vix::middleware::app
 

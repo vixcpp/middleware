@@ -16,7 +16,7 @@ namespace vix::middleware::app
 {
     struct HttpCacheAppConfig
     {
-        std::string prefix{"/api/"}; // used only by install_http_cache()
+        std::string prefix{"/api/"};
         bool only_get{true};
         int ttl_ms{30'000};
 
@@ -64,20 +64,16 @@ namespace vix::middleware::app
                 std::move(mw));
         }
 
-        // (optional) debug header would need support inside inner middleware
-        // cfg.add_debug_header is kept for future.
-
         return mw;
     }
 
     inline void install_http_cache(vix::App &app, HttpCacheAppConfig cfg = {})
     {
         std::string prefix = cfg.prefix;
-        cfg.prefix.clear(); // optional, not needed anymore but harmless
+        cfg.prefix.clear();
 
         auto mw = http_cache_mw(std::move(cfg));
         vix::middleware::app::install(app, std::move(prefix), std::move(mw));
-        // Or: app.use(prefix, mw); (same effect)
     }
 
 } // namespace vix::middleware::app
