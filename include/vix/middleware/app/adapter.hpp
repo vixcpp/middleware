@@ -10,9 +10,7 @@
 
 namespace vix::middleware::app
 {
-    // ---------------------------------------------------------------------
     // Adapt legacy HttpMiddleware(Request&, Response&, Next)
-    // ---------------------------------------------------------------------
     inline vix::App::Middleware adapt(vix::middleware::HttpMiddleware inner)
     {
         return [inner = std::move(inner)](
@@ -25,10 +23,8 @@ namespace vix::middleware::app
         };
     }
 
-    // ---------------------------------------------------------------------
     // Adapt Context-based middleware (MiddlewareFn(Context&, Next))
     // Ex: auth::jwt(opt), auth::api_key(opt), rbac, etc.
-    // ---------------------------------------------------------------------
     inline vix::App::Middleware adapt_ctx(vix::middleware::MiddlewareFn inner)
     {
         return [inner = std::move(inner),
@@ -43,9 +39,7 @@ namespace vix::middleware::app
         };
     }
 
-    // ---------------------------------------------------------------------
     // Conditional middleware (predicate on Request)
-    // ---------------------------------------------------------------------
     template <class Pred>
     inline vix::App::Middleware when(Pred pred, vix::App::Middleware mw)
     {
@@ -64,9 +58,7 @@ namespace vix::middleware::app
         };
     }
 
-    // ---------------------------------------------------------------------
     // Build middleware protecting EXACT path
-    // ---------------------------------------------------------------------
     inline vix::App::Middleware protect_path(std::string path,
                                              vix::App::Middleware mw)
     {
@@ -78,9 +70,7 @@ namespace vix::middleware::app
             std::move(mw));
     }
 
-    // ---------------------------------------------------------------------
     // Build middleware protecting PREFIX ("/api/", "/secure", etc.)
-    // ---------------------------------------------------------------------
     inline vix::App::Middleware protect_prefix_mw(std::string prefix,
                                                   vix::App::Middleware mw)
     {

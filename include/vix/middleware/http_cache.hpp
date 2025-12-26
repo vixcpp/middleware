@@ -202,10 +202,6 @@ namespace vix::middleware
             // capture + normalize headers so we can reliably replay content-type, etc.
             e.headers = response_headers_map(raw_res);
             vix::vhttp::cache::HeaderUtil::normalizeInPlace(e.headers);
-
-            // store our own debug marker too (not required, but can be useful)
-            // e.headers["x-vix-cache-status"] = "hit";
-
             cache->put(key, e);
         };
     }
