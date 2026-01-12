@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BODY_LIMIT_HPP
+#define BODY_LIMIT_HPP
 
 #include <cstddef>
 #include <functional>
@@ -95,8 +96,6 @@ namespace vix::middleware::basics
                 }
             }
 
-            // Quick path: if body already buffered in Request (string_body),
-            // we can measure it immediately.
             const std::size_t body_size = req.body().size();
             if (body_size > 0)
             {
@@ -116,8 +115,6 @@ namespace vix::middleware::basics
                 return;
             }
 
-            // If body is empty, we also want to catch large uploads early
-            // using Content-Length when present.
             const std::string cl = req.header("content-length");
             if (!cl.empty())
             {
@@ -157,3 +154,5 @@ namespace vix::middleware::basics
     }
 
 } // namespace vix::middleware::basics
+
+#endif

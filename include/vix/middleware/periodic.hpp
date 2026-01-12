@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PERIODIC_HPP
+#define PERIODIC_HPP
 
 #include <atomic>
 #include <chrono>
@@ -95,3 +96,5 @@ namespace vix::middleware
     };
 
 } // namespace vix::middleware
+
+#endif

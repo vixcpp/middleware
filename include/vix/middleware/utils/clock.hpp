@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CLOCK_HPP
+#define CLOCK_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -36,3 +37,5 @@ namespace vix::middleware::utils
     };
 
 } // namespace vix::middleware::utils
+
+#endif

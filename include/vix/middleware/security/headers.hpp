@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HEADERS_HPP
+#define HEADERS_HPP
 
 #include <string>
 #include <string_view>
@@ -63,3 +64,5 @@ namespace vix::middleware::security
     }
 
 } // namespace vix::middleware::security
+
+#endif

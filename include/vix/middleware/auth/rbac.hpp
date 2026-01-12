@@ -11,11 +11,10 @@
 
 #include <nlohmann/json.hpp>
 
-#include <vix/middleware/auth/jwt.hpp> // JwtClaims
+#include <vix/middleware/auth/jwt.hpp>
 
 namespace vix::middleware::auth
 {
-    // Model stored in request state
     struct Authz final
     {
         std::string subject;
@@ -33,7 +32,6 @@ namespace vix::middleware::auth
         }
     };
 
-    // Optional resolver: subject -> extra roles/perms (DB/Redis/etc.)
     struct PermissionResolver
     {
         virtual ~PermissionResolver() = default;
@@ -53,13 +51,9 @@ namespace vix::middleware::auth
 
         // If true: missing JwtClaims => 401
         bool require_auth{true};
-
-        // If a PermissionResolver is provided in services, we enrich roles/perms.
-        // services().get<PermissionResolver>() should return shared_ptr<PermissionResolver>
         bool use_resolver{true};
     };
 
-    // Helpers to read claims
     inline void insert_if_string(std::unordered_set<std::string> &out, const nlohmann::json &v)
     {
         if (v.is_string())
@@ -140,7 +134,6 @@ namespace vix::middleware::auth
         if (!opt.use_resolver)
             return;
 
-        // Try to get resolver from services
         auto resolver = ctx.services().get<PermissionResolver>();
         if (!resolver)
             return;
@@ -171,7 +164,7 @@ namespace vix::middleware::auth
         ctx.send_error(normalize(std::move(e)));
     }
 
-    // 1) Build + attach Authz object (one time, reusable)
+    // Build + attach Authz object (one time, reusable)
     inline MiddlewareFn rbac_context(RbacOptions opt = {})
     {
         return [opt = std::move(opt)](Context &ctx, Next next) mutable

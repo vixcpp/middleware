@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TOKEN_BUCKET_HPP
+#define TOKEN_BUCKET_HPP
 
 #include <algorithm>
 #include <chrono>
@@ -88,3 +89,5 @@ namespace vix::middleware::utils
     };
 
 } // namespace vix::middleware::utils
+
+#endif

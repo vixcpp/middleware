@@ -1,6 +1,5 @@
-#pragma once
-#ifndef VIX_MIDDLEWARE_PARSERS_DETAIL_STRINGS_HPP
-#define VIX_MIDDLEWARE_PARSERS_DETAIL_STRINGS_HPP
+#ifndef VIX_STRING_HPP
+#define VIX_STRING_HPP
 
 #include <cstddef>
 #include <string_view>

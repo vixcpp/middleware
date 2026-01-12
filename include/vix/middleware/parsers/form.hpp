@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FORM_HPP
+#define FORM_HPP
 
 #include <cstddef>
 #include <string>
@@ -159,3 +160,5 @@ namespace vix::middleware::parsers
     }
 
 } // namespace vix::middleware::parsers
+
+#endif

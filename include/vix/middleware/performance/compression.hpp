@@ -1,4 +1,5 @@
-#pragma once
+#ifndef COMPRESSION_HPP
+#define COMPRESSION_HPP
 
 #include <cstddef>
 #include <string>
@@ -43,10 +44,6 @@ namespace vix::middleware::performance
         // Gzip level: 1..9 (reasonable default = 6)
         int gzip_level{6};
     };
-
-    // ---------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------
 
     inline bool icase_eq(char a, char b)
     {
@@ -183,9 +180,6 @@ namespace vix::middleware::performance
         raw.content_length(raw.body().size());
     }
 
-    // ---------------------------------------------------------------------
-    // Middleware v2
-    // ---------------------------------------------------------------------
     inline MiddlewareFn compression(CompressionOptions opt = {})
     {
         return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -218,6 +212,12 @@ namespace vix::middleware::performance
             const std::string body = raw.body();
             if (body.size() < opt.min_size)
                 return;
+
+#ifndef NDEBUG
+            // In debug, indicate that compression would be attempted
+            // (even if no compression backend is enabled in this build).
+            res.header("X-Vix-Compression", "planned");
+#endif
 
             // Choose algorithm
             enum class Algo
@@ -286,3 +286,5 @@ namespace vix::middleware::performance
     }
 
 } // namespace vix::middleware::performance
+
+#endif

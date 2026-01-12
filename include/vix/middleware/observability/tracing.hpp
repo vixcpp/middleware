@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TRACING_HPP
+#define TRACING_HPP
 
 #include <cstdint>
 #include <functional>
@@ -120,7 +121,7 @@ namespace vix::middleware::observability
     {
         vix::middleware::Hooks h;
 
-        // IMPORTANT: emit headers in on_begin (before handler commits response)
+        // emit headers in on_begin (before handler commits response)
         h.on_begin = [opt = std::move(opt)](vix::middleware::Context &ctx) mutable
         {
             TraceContext tc = build_trace_ctx(ctx, opt);
@@ -165,7 +166,7 @@ namespace vix::middleware::observability
 
             ctx.set_state(tc);
 
-            // IMPORTANT: emit before next() (before final handler commits response)
+            // emit before next() (before final handler commits response)
             emit_headers(ctx, tc, opt);
 
             next();
@@ -176,3 +177,5 @@ namespace vix::middleware::observability
     }
 
 } // namespace vix::middleware::observability
+
+#endif

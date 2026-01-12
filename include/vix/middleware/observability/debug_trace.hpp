@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DEBUG_TRACE_HPP
+#define DEBUG_TRACE_HPP
 
 #include <chrono>
 #include <memory>
@@ -187,3 +188,5 @@ namespace vix::middleware::observability
     }
 
 } // namespace vix::middleware::observability
+
+#endif

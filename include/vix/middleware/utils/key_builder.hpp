@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KEY_BUILDER_HPP
+#define KEY_BUILDER_HPP
 
 #include <cstdint>
 #include <string>
@@ -80,3 +81,5 @@ namespace vix::middleware::utils
     };
 
 } // namespace vix::middleware::utils
+
+#endif

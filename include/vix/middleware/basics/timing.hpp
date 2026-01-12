@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TIMING_HPP
+#define TIMING_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -68,3 +69,5 @@ namespace vix::middleware::basics
     }
 
 } // namespace vix::middleware::basics
+
+#endif

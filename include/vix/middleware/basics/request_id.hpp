@@ -1,4 +1,5 @@
-#pragma once
+#ifndef REQUEST_ID_HPP
+#define REQUEST_ID_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -12,7 +13,6 @@
 
 namespace vix::middleware::basics
 {
-    // Typed state payload
     struct RequestId final
     {
         std::string value;
@@ -28,7 +28,6 @@ namespace vix::middleware::basics
 
     inline bool is_reasonable_request_id(std::string_view s)
     {
-        // Keep it simple: avoid huge / invalid header values.
         // Allow: [A-Za-z0-9-_.:] and length [8..128]
         if (s.size() < 8 || s.size() > 128)
             return false;
@@ -63,7 +62,7 @@ namespace vix::middleware::basics
 
     inline std::string generate_request_id()
     {
-        // Fast and good-enough: time + random64 => 32 hex chars
+        // time + random64 => 32 hex chars
         const auto now = std::chrono::steady_clock::now().time_since_epoch();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
 
@@ -90,7 +89,7 @@ namespace vix::middleware::basics
 
             std::string rid;
 
-            // 1) Try incoming header
+            // Try incoming header
             if (opt.accept_incoming && !header.empty())
             {
                 const std::string incoming = ctx.req().header(header);
@@ -100,19 +99,19 @@ namespace vix::middleware::basics
                 }
             }
 
-            // 2) Generate if missing
+            // Generate if missing
             if (rid.empty() && opt.generate_if_missing)
             {
                 rid = generate_request_id();
             }
 
-            // 3) Store in typed request state (shared for this request)
+            // Store in typed request state
             if (!rid.empty())
             {
                 ctx.set_state(RequestId{rid});
             }
 
-            // 4) Always set response header (common practice)
+            // Always set response header
             if (opt.always_set_response_header && !header.empty() && !rid.empty())
             {
                 ctx.res().header(header, rid);
@@ -123,3 +122,5 @@ namespace vix::middleware::basics
     }
 
 } // namespace vix::middleware::basics
+
+#endif

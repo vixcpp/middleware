@@ -1,35 +1,18 @@
 # ====================================================================
-# Vix.cpp — Middleware Module
+# Vix.cpp — Middleware Module (Core HTTP only)
 # ====================================================================
-# Purpose:
-#   Build configuration for the Vix middleware module:
-#   - Defines the middleware abstraction (request/response + next)
-#   - Provides a pipeline to compose multiple middlewares
-#   - Hosts common built-in middlewares (logging, CORS, timing, etc.)
+# Required:
+#   - vix::core
+#   - vix::cache
 #
-# Public Targets:
-#   - vix_middleware    : The actual library target (STATIC or INTERFACE)
-#   - vix::middleware   : Canonical namespaced alias
-#   - vix::mw           : Short ergonomic alias
-#
-# Public Dependencies:
-#   - vix::core   (HTTP server, Request/Response, routing)
-#   - vix::utils  (logging, helpers)
-#   - optional JSON backend (vix::json / vix_json)
-#
-# Options:
-#   - VIX_MIDDLEWARE_WITH_JSON : AUTO|ON|OFF (default: AUTO)
-#   - VIX_MIDDLEWARE_FETCH_CORE: Auto-fetch vix::core if missing (default ON)
-#
-# Installation/Export:
-#   - Contributes to the umbrella export-set `VixTargets`
-#   - Headers installed under <prefix>/include/vix/middleware/...
+# Optional:
+#   - vix::utils (AUTO|ON|OFF)
+#   - JSON backend (AUTO|ON|OFF): vix::json or vix_json
 # ====================================================================
 
 cmake_minimum_required(VERSION 3.20)
 project(vix_middleware VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_DISABLE_FIND_PACKAGE_VixOrm ON)
-
 
 include(GNUInstallDirs)
 
@@ -41,38 +24,99 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ------------------------ Sources discovery --------------------------
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
-# ------------------------ Core dependency ----------------------------
-option(VIX_MIDDLEWARE_FETCH_CORE "Auto-fetch vix::core if missing" ON)
+# ------------------------ Required: Core -----------------------------
+option(VIX_MW_FETCH_CORE "Auto-fetch vix::core if missing" ON)
 
 if (NOT TARGET vix::core)
   if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../core/CMakeLists.txt")
     message(STATUS "[middleware] Adding core from umbrella: ../core")
     add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../core" "core")
-  elseif (VIX_MIDDLEWARE_FETCH_CORE)
+  elseif (VIX_MW_FETCH_CORE)
     include(FetchContent)
     message(STATUS "[middleware] Fetching vix::core via FetchContent")
     FetchContent_Declare(vix_core
       GIT_REPOSITORY https://github.com/vixcpp/core.git
-      GIT_TAG        v1.5.2
+      GIT_TAG        dev
     )
     FetchContent_MakeAvailable(vix_core)
   else()
-    message(FATAL_ERROR
-      "vix::core not found. Provide vix::core before middleware "
-      "or enable VIX_MIDDLEWARE_FETCH_CORE=ON.")
+    message(FATAL_ERROR "vix::core not found. Provide it or enable VIX_MW_FETCH_CORE=ON.")
   endif()
 endif()
 
 set(VIX_CORE_TARGET vix::core)
 
-# ------------------------ JSON linkage policy ------------------------
-set(VIX_MIDDLEWARE_WITH_JSON "AUTO" CACHE STRING "Link JSON backend (AUTO|ON|OFF)")
-set_property(CACHE VIX_MIDDLEWARE_WITH_JSON PROPERTY STRINGS AUTO ON OFF)
+# ------------------------ Required: Cache ----------------------------
+option(VIX_MW_FETCH_CACHE "Auto-fetch vix::cache if missing" ON)
 
-function(vix_middleware_try_link_json onto link_scope)
-  if (VIX_MIDDLEWARE_WITH_JSON STREQUAL "OFF")
+if (NOT TARGET vix::cache)
+  if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../cache/CMakeLists.txt")
+    message(STATUS "[middleware] Adding cache from umbrella: ../cache")
+    add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../cache" "cache")
+  elseif (VIX_MW_FETCH_CACHE)
+    include(FetchContent)
+    message(STATUS "[middleware] Fetching vix::cache via FetchContent")
+    FetchContent_Declare(vix_cache
+      GIT_REPOSITORY https://github.com/vixcpp/cache.git
+      GIT_TAG        v0.1.0
+    )
+    FetchContent_MakeAvailable(vix_cache)
+  else()
+    message(FATAL_ERROR "vix::cache not found. Provide it or enable VIX_MW_FETCH_CACHE=ON.")
+  endif()
+endif()
+
+set(VIX_CACHE_TARGET vix::cache)
+
+# ------------------------ Optional: Utils ----------------------------
+set(VIX_MW_WITH_UTILS "AUTO" CACHE STRING "Link utils module (AUTO|ON|OFF)")
+set_property(CACHE VIX_MW_WITH_UTILS PROPERTY STRINGS AUTO ON OFF)
+option(VIX_MW_FETCH_UTILS "Auto-fetch vix::utils if missing (when needed)" ON)
+
+function(vix_mw_try_link_utils onto link_scope)
+  if (VIX_MW_WITH_UTILS STREQUAL "OFF")
+    message(STATUS "[middleware] Utils disabled (OFF)")
+    target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_UTILS=1)
+    return()
+  endif()
+
+  if (NOT TARGET vix::utils)
+    if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../utils/CMakeLists.txt")
+      message(STATUS "[middleware] Adding utils from umbrella: ../utils")
+      add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../utils" "utils")
+    elseif (VIX_MW_FETCH_UTILS)
+      include(FetchContent)
+      message(STATUS "[middleware] Fetching vix::utils via FetchContent")
+      FetchContent_Declare(vix_utils
+        GIT_REPOSITORY https://github.com/vixcpp/utils.git
+        GIT_TAG        dev
+      )
+      FetchContent_MakeAvailable(vix_utils)
+    endif()
+  endif()
+
+  if (TARGET vix::utils)
+    message(STATUS "[middleware] Utils backend: vix::utils")
+    target_link_libraries(${onto} ${link_scope} vix::utils)
+    target_compile_definitions(${onto} ${link_scope} VIX_MW_WITH_UTILS=1)
+  else()
+    if (VIX_MW_WITH_UTILS STREQUAL "ON")
+      message(FATAL_ERROR "Utils required but vix::utils not found.")
+    else()
+      message(STATUS "[middleware] Utils not detected; building without utils.")
+      target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_UTILS=1)
+    endif()
+  endif()
+endfunction()
+
+# ------------------------ Optional: JSON backend ---------------------
+set(VIX_MW_WITH_JSON "AUTO" CACHE STRING "Link JSON backend (AUTO|ON|OFF)")
+set_property(CACHE VIX_MW_WITH_JSON PROPERTY STRINGS AUTO ON OFF)
+
+function(vix_mw_try_link_json onto link_scope)
+  if (VIX_MW_WITH_JSON STREQUAL "OFF")
     message(STATUS "[middleware] JSON disabled (OFF)")
-    target_compile_definitions(${onto} ${link_scope} VIX_MIDDLEWARE_NO_JSON=1)
+    target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_JSON=1)
     return()
   endif()
 
@@ -89,22 +133,21 @@ function(vix_middleware_try_link_json onto link_scope)
     message(STATUS "[middleware] JSON backend: ${_json_found}")
     target_link_libraries(${onto} ${link_scope} ${_json_found})
   else()
-    if (VIX_MIDDLEWARE_WITH_JSON STREQUAL "ON")
-      message(FATAL_ERROR
-        "JSON required but not found (expected: vix::json or vix_json).")
+    if (VIX_MW_WITH_JSON STREQUAL "ON")
+      message(FATAL_ERROR "JSON required but not found (expected: vix::json or vix_json).")
     else()
       message(STATUS "[middleware] No JSON backend detected; building without JSON.")
-      target_compile_definitions(${onto} ${link_scope} VIX_MIDDLEWARE_NO_JSON=1)
+      target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_JSON=1)
     endif()
   endif()
 endfunction()
-
 
 # ============================== STATIC ===============================
 if (MIDDLEWARE_SOURCES)
   message(STATUS "[middleware] Building STATIC library with detected sources.")
 
   add_library(vix_middleware STATIC ${MIDDLEWARE_SOURCES})
+
   if (TARGET vix_warnings)
     target_link_libraries(vix_middleware PUBLIC vix_warnings)
   endif()
@@ -119,12 +162,17 @@ if (MIDDLEWARE_SOURCES)
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
+  # Required deps
   target_link_libraries(vix_middleware
     PUBLIC
       ${VIX_CORE_TARGET}
+      ${VIX_CACHE_TARGET}
   )
 
-  vix_middleware_try_link_json(vix_middleware PUBLIC)
+  # Optional deps
+  vix_mw_try_link_utils(vix_middleware PUBLIC)
+  vix_mw_try_link_json(vix_middleware PUBLIC)
+
   if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
     target_link_libraries(vix_middleware PUBLIC vix_sanitizers)
   endif()
@@ -158,7 +206,6 @@ else()
 
   add_library(vix::middleware ALIAS vix_middleware)
   add_library(vix::mw         ALIAS vix_middleware)
-
   target_compile_features(vix_middleware INTERFACE cxx_std_20)
 
   target_include_directories(vix_middleware INTERFACE
@@ -166,11 +213,16 @@ else()
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
+  # Required deps
   target_link_libraries(vix_middleware INTERFACE
     ${VIX_CORE_TARGET}
+    ${VIX_CACHE_TARGET}
   )
 
-  vix_middleware_try_link_json(vix_middleware INTERFACE)
+  # Optional deps
+  vix_mw_try_link_utils(vix_middleware INTERFACE)
+  vix_mw_try_link_json(vix_middleware INTERFACE)
+
   if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
     target_link_libraries(vix_middleware INTERFACE vix_sanitizers)
   endif()
@@ -183,9 +235,10 @@ else()
           FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 endif()
 
-option(VIX_MIDDLEWARE_BUILD_TESTS "Build middleware tests" OFF)
+# ------------------------ Tests (optional) ---------------------------
+option(VIX_MW_BUILD_TESTS "Build middleware tests" OFF)
 
-if (VIX_MIDDLEWARE_BUILD_TESTS)
+if (VIX_MW_BUILD_TESTS)
   include(CTest)
   enable_testing()
   add_subdirectory(tests)
@@ -199,8 +252,10 @@ if (MIDDLEWARE_SOURCES)
 else()
   message(STATUS "Mode: HEADER-ONLY / no sources")
 endif()
-message(STATUS "JSON policy:        ${VIX_MIDDLEWARE_WITH_JSON}")
 message(STATUS "Core target:        ${VIX_CORE_TARGET}")
+message(STATUS "Cache target:       ${VIX_CACHE_TARGET}")
+message(STATUS "Utils policy:       ${VIX_MW_WITH_UTILS}")
+message(STATUS "JSON policy:        ${VIX_MW_WITH_JSON}")
 message(STATUS "Include dir:        ${CMAKE_CURRENT_SOURCE_DIR}/include")
 message(STATUS "Sanitizers enabled: ${VIX_ENABLE_SANITIZERS}")
 message(STATUS "Build type:         ${CMAKE_BUILD_TYPE}")

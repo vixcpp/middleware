@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PIPELINE_HPP
+#define PIPELINE_HPP
 
 #include <cstddef>
 #include <cstdlib>
@@ -185,3 +186,5 @@ namespace vix::middleware
     }
 
 } // namespace vix::middleware
+
+#endif

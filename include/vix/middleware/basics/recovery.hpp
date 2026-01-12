@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RECOVERY_HPP
+#define RECOVERY_HPP
 
 #include <exception>
 #include <string>
@@ -6,19 +7,18 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/middleware/basics/request_id.hpp> // optional: for request_id in error payload
+#include <vix/middleware/basics/request_id.hpp>
 
 namespace vix::middleware::basics
 {
     struct RecoveryOptions final
     {
         bool include_exception_message{false}; // prod=false, dev=true
-        bool include_code_location{false};     // reserved for later (stack/frame)
+        bool include_code_location{false};
         std::string code{"internal_server_error"};
         std::string message{"Internal Server Error"};
     };
 
-    // Optional logger contract (if you don't want to depend on vix::utils::Logger directly)
     struct IRecoveryLogger
     {
         virtual ~IRecoveryLogger() = default;
@@ -43,7 +43,6 @@ namespace vix::middleware::basics
             }
             catch (const std::exception &e)
             {
-                // Try to log through DI (optional)
                 if (auto log = ctx.services().get<IRecoveryLogger>())
                 {
                     std::string msg;
@@ -102,3 +101,5 @@ namespace vix::middleware::basics
     }
 
 } // namespace vix::middleware::basics
+
+#endif

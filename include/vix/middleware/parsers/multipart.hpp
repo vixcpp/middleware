@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MULTIPART_HPP
+#define MULTIPART_HPP
 
 #include <string>
 #include <string_view>
@@ -78,3 +79,5 @@ namespace vix::middleware::parsers
     }
 
 } // namespace vix::middleware::parsers
+
+#endif

@@ -14,8 +14,8 @@ namespace vix::middleware::app
     inline vix::App::Middleware adapt(vix::middleware::HttpMiddleware inner)
     {
         return [inner = std::move(inner)](
-                   vix::Request &req,
-                   vix::Response &res,
+                   vix::vhttp::Request &req,
+                   vix::vhttp::ResponseWrapper &res,
                    vix::App::Next next) mutable
         {
             vix::mw::Next mw_next(std::move(next));
@@ -29,8 +29,8 @@ namespace vix::middleware::app
     {
         return [inner = std::move(inner),
                 services = vix::mw::Services{}](
-                   vix::Request &req,
-                   vix::Response &res,
+                   vix::vhttp::Request &req,
+                   vix::vhttp::ResponseWrapper &res,
                    vix::App::Next next) mutable
         {
             vix::mw::Context ctx(req, res, services);
@@ -63,7 +63,7 @@ namespace vix::middleware::app
                                              vix::App::Middleware mw)
     {
         return when(
-            [path = std::move(path)](const vix::Request &req)
+            [path = std::move(path)](const vix::vhttp::Request &req)
             {
                 return req.path() == path;
             },
@@ -75,7 +75,7 @@ namespace vix::middleware::app
                                                   vix::App::Middleware mw)
     {
         return when(
-            [prefix = std::move(prefix)](const vix::Request &req)
+            [prefix = std::move(prefix)](const vix::vhttp::Request &req)
             {
                 return req.path().rfind(prefix, 0) == 0; // starts_with
             },

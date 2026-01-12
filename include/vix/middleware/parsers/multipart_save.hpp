@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MULTIPART_SAVE_HPP
+#define MULTIPART_SAVE_HPP
 
 #include <algorithm>
 #include <cctype>
@@ -492,3 +493,5 @@ namespace vix::middleware::parsers
     }
 
 } // namespace vix::middleware::parsers
+
+#endif

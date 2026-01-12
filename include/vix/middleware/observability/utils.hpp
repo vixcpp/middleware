@@ -1,4 +1,6 @@
-#pragma once
+#ifndef UTILS_HPP
+#define UTILS_HPP
+
 #include <string>
 #include <string_view>
 #include <vix/middleware/middleware.hpp>
@@ -17,3 +19,5 @@ namespace vix::middleware::observability
         return p.empty() ? std::string("/") : p;
     }
 }
+
+#endif

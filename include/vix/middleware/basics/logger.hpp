@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
 #include <cstdint>
 #include <string>
@@ -76,10 +77,11 @@ namespace vix::middleware::basics
         return out;
     }
 
-    inline std::string build_text_line(const Context &ctx,
-                                       int status_code,
-                                       std::int64_t duration_ms,
-                                       const LoggerOptions &opt)
+    inline std::string build_text_line(
+        const Context &ctx,
+        int status_code,
+        std::int64_t duration_ms,
+        const LoggerOptions &opt)
     {
         std::string line;
         line.reserve(256);
@@ -141,10 +143,11 @@ namespace vix::middleware::basics
         return line;
     }
 
-    inline std::string build_json_line(const Context &ctx,
-                                       int status_code,
-                                       std::int64_t duration_ms,
-                                       const LoggerOptions &opt)
+    inline std::string build_json_line(
+        const Context &ctx,
+        int status_code,
+        std::int64_t duration_ms,
+        const LoggerOptions &opt)
     {
         std::string json;
         json.reserve(320);
@@ -202,7 +205,6 @@ namespace vix::middleware::basics
             // run handler
             next();
 
-            // Get response status code from underlying Beast response
             const int status_code = static_cast<int>(ctx.res().res.result_int());
 
             // Duration from Timing middleware
@@ -245,3 +247,5 @@ namespace vix::middleware::basics
     }
 
 } // namespace vix::middleware::basics
+
+#endif

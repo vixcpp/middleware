@@ -1,4 +1,5 @@
-#pragma once
+#ifndef METRICS_HPP
+#define METRICS_HPP
 
 #include <algorithm>
 #include <atomic>
@@ -278,3 +279,5 @@ namespace vix::middleware::observability
     }
 
 } // namespace vix::middleware::observability
+
+#endif

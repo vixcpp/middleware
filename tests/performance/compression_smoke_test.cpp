@@ -9,7 +9,9 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string target, std::initializer_list<std::pair<std::string, std::string>> headers = {})
+static vix::vhttp::RawRequest make_req(
+    std::string target,
+    std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
     namespace http = boost::beast::http;
     vix::vhttp::RawRequest req{http::verb::get, target, 11};

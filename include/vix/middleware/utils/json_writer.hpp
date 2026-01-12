@@ -1,4 +1,5 @@
-#pragma once
+#ifndef JSON_WRITER_HPP
+#define JSON_WRITER_HPP
 
 #include <cstdint>
 #include <string>
@@ -178,3 +179,5 @@ namespace vix::middleware::utils
     };
 
 } // namespace vix::middleware::utils
+
+#endif
