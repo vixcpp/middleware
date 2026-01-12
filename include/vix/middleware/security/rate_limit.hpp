@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RATE_LIMIT_HPP
+#define RATE_LIMIT_HPP
 
 #include <chrono>
 #include <functional>
@@ -51,13 +52,13 @@ namespace vix::middleware::security
 
     inline std::string default_key_from_req(const vix::middleware::Request &req, const RateLimitOptions &opt)
     {
-        // 1) try configured header (x-forwarded-for by default)
+        // try configured header (x-forwarded-for by default)
         std::string k = req.header(opt.key_header);
         k = first_csv_token(std::move(k));
         if (!k.empty())
             return k;
 
-        // 2) fallback: x-real-ip
+        // fallback: x-real-ip
         k = trim_copy(req.header("x-real-ip"));
         if (!k.empty())
             return k;
@@ -140,3 +141,5 @@ namespace vix::middleware::security
     }
 
 } // namespace vix::middleware::security
+
+#endif

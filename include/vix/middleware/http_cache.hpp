@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HTTP_CACHE_HPP
+#define HTTP_CACHE_HPP
 
 #include <cstdint>
 #include <chrono>
@@ -14,10 +15,10 @@
 #include <boost/beast/http.hpp>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/http/cache/Cache.hpp>
-#include <vix/http/cache/CacheContext.hpp>
-#include <vix/http/cache/CacheKey.hpp>
-#include <vix/http/cache/HeaderUtil.hpp>
+#include <vix/cache/Cache.hpp>
+#include <vix/cache/CacheContext.hpp>
+#include <vix/cache/CacheKey.hpp>
+#include <vix/cache/HeaderUtil.hpp>
 
 namespace vix::middleware
 {
@@ -31,7 +32,7 @@ namespace vix::middleware
         bool allow_bypass{true};
         std::string bypass_header{"x-vix-cache"};
         std::string bypass_value{"bypass"};
-        std::function<vix::vhttp::cache::CacheContext(Request &)> context_provider{};
+        std::function<vix::cache::CacheContext(Request &)> context_provider{};
     };
 
     inline std::int64_t now_ms()
@@ -111,7 +112,7 @@ namespace vix::middleware
     }
 
     inline HttpMiddleware http_cache(
-        std::shared_ptr<vix::vhttp::cache::Cache> cache,
+        std::shared_ptr<vix::cache::Cache> cache,
         HttpCacheOptions opt = {})
     {
         return [cache = std::move(cache), opt = std::move(opt)](
@@ -141,14 +142,14 @@ namespace vix::middleware
 
             const std::string query_raw = extract_query_raw_from_target(req.target());
             auto req_headers = request_headers_map(req);
-            vix::vhttp::cache::HeaderUtil::normalizeInPlace(req_headers);
+            vix::cache::HeaderUtil::normalizeInPlace(req_headers);
 
-            const std::string key = vix::vhttp::cache::CacheKey::fromRequest(
+            const std::string key = vix::cache::CacheKey::fromRequest(
                 req.method(), req.path(), query_raw, req_headers, opt.vary_headers);
 
-            vix::vhttp::cache::CacheContext ctx =
+            vix::cache::CacheContext ctx =
                 opt.context_provider ? opt.context_provider(req)
-                                     : vix::vhttp::cache::CacheContext::Online();
+                                     : vix::cache::CacheContext::Online();
 
             const std::int64_t t0 = now_ms();
 
@@ -194,16 +195,18 @@ namespace vix::middleware
             if (opt.require_body && raw_res.body().empty())
                 return;
 
-            vix::vhttp::cache::CacheEntry e;
+            vix::cache::CacheEntry e;
             e.status = static_cast<int>(sc_u);
             e.body = raw_res.body();
             e.created_at_ms = t0;
 
             // capture + normalize headers so we can reliably replay content-type, etc.
             e.headers = response_headers_map(raw_res);
-            vix::vhttp::cache::HeaderUtil::normalizeInPlace(e.headers);
+            vix::cache::HeaderUtil::normalizeInPlace(e.headers);
             cache->put(key, e);
         };
     }
 
 } // namespace vix::middleware
+
+#endif

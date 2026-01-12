@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ETAG_HPP
+#define ETAG_HPP
 
 #include <cstdint>
 #include <string>
@@ -98,3 +99,5 @@ namespace vix::middleware::performance
     }
 
 } // namespace vix::middleware::performance
+
+#endif

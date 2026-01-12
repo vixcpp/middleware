@@ -1,4 +1,5 @@
-#pragma once
+#ifndef IP_FILTER_HPP
+#define IP_FILTER_HPP
 
 #include <string>
 #include <string_view>
@@ -90,3 +91,5 @@ namespace vix::middleware::security
     }
 
 } // namespace vix::middleware::security
+
+#endif

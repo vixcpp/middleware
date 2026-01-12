@@ -21,7 +21,6 @@
 
 namespace vix::middleware::auth
 {
-    // Stored into RequestState on success
     struct JwtClaims
     {
         nlohmann::json payload;         // full payload (claims)
@@ -170,7 +169,7 @@ namespace vix::middleware::auth
 
     inline std::optional<std::string> extract_token_default(const vix::middleware::Request &req, const JwtOptions &opt)
     {
-        // 1) Authorization header
+        // Authorization header
         std::string h = req.header(opt.auth_header);
         h = trim_copy(std::move(h));
 
@@ -186,7 +185,7 @@ namespace vix::middleware::auth
             }
         }
 
-        // 2) query param (optional)
+        //  query param
         if (!opt.query_param.empty())
         {
             auto it = req.query().find(opt.query_param);
@@ -257,9 +256,7 @@ namespace vix::middleware::auth
         return now_s >= exp_s;
     }
 
-    // ---------------------------
     // JWT middleware (HS256)
-    // ---------------------------
     inline MiddlewareFn jwt(JwtOptions opt)
     {
         return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -341,7 +338,7 @@ namespace vix::middleware::auth
                 return;
             }
 
-            // alg must be HS256 (v1)
+            // alg must be HS256
             const auto alg = json_string_claim(header_json, "alg").value_or("");
             if (alg != "HS256")
             {
@@ -378,7 +375,7 @@ namespace vix::middleware::auth
                 return;
             }
 
-            // aud can be string or array — v1 simple: string only
+            // aud can be string or array: string only
             if (!opt.audience.empty())
             {
                 bool ok = false;

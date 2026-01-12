@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ASCII_HPP
+#define ASCII_HPP
 
 #include <cctype>
 #include <string>
@@ -13,3 +14,5 @@ namespace vix::middleware::basics::detail
         return s;
     }
 }
+
+#endif

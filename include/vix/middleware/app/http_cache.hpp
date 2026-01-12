@@ -8,9 +8,9 @@
 #include <vix/middleware/app/adapter.hpp>
 #include <vix/middleware/http_cache.hpp>
 
-#include <vix/http/cache/Cache.hpp>
-#include <vix/http/cache/CachePolicy.hpp>
-#include <vix/http/cache/MemoryStore.hpp>
+#include <vix/cache/Cache.hpp>
+#include <vix/cache/CachePolicy.hpp>
+#include <vix/cache/MemoryStore.hpp>
 
 namespace vix::middleware::app
 {
@@ -25,22 +25,20 @@ namespace vix::middleware::app
         std::string bypass_value{"bypass"};
 
         std::vector<std::string> vary_headers{};
-        std::shared_ptr<vix::vhttp::cache::Cache> cache{};
+        std::shared_ptr<vix::cache::Cache> cache{};
 
         bool add_debug_header{false};
         std::string debug_header{"x-vix-cache-status"};
     };
 
-    inline std::shared_ptr<vix::vhttp::cache::Cache>
+    inline std::shared_ptr<vix::cache::Cache>
     make_default_cache(const HttpCacheAppConfig &cfg)
     {
-        using namespace vix::vhttp::cache;
-
         auto store = std::make_shared<MemoryStore>();
-        CachePolicy policy;
+        vix::cache::CachePolicy policy;
         policy.ttl_ms = cfg.ttl_ms;
 
-        return std::make_shared<Cache>(policy, store);
+        return std::make_shared<vix::cache::Cache>(policy, store);
     }
 
     inline vix::App::Middleware http_cache_mw(HttpCacheAppConfig cfg = {})

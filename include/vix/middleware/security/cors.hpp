@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CORS_HPP
+#define CORS_HPP
 
 #include <algorithm>
 #include <string>
@@ -128,7 +129,7 @@ namespace vix::middleware::security
             const bool wildcard_ok =
                 (opt.allow_any_origin && opt.allowed_origins.empty() && !opt.allow_credentials);
 
-            // Helper: set common CORS headers (used for preflight and normal)
+            // set common CORS headers (used for preflight and normal)
             auto apply_common = [&]()
             {
                 res.header("Access-Control-Allow-Origin", wildcard_ok ? "*" : origin);
@@ -187,3 +188,5 @@ namespace vix::middleware::security
     }
 
 } // namespace vix::middleware::security
+
+#endif

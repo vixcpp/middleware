@@ -1,4 +1,5 @@
-#pragma once
+#ifndef STATIC_FILES_HPP
+#define STATIC_FILES_HPP
 
 #include <filesystem>
 #include <fstream>
@@ -146,3 +147,5 @@ namespace vix::middleware::performance
     }
 
 } // namespace vix::middleware::performance
+
+#endif

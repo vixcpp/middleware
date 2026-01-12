@@ -1,11 +1,11 @@
-#pragma once
+#ifndef MIDDLEWARE_HPP
+#define MIDDLEWARE_HPP
 
 #include <functional>
 #include <utility>
 
 #include <vix/http/RequestHandler.hpp>
 
-// primitives live in core now
 #include <vix/mw/next.hpp>
 #include <vix/mw/context.hpp>
 #include <vix/mw/result.hpp>
@@ -65,3 +65,5 @@ namespace vix::middleware
     }
 
 } // namespace vix::middleware
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HEADER_UTILS_HPP
+#define HEADER_UTILS_HPP
 
 #include <algorithm>
 #include <cctype>
@@ -94,3 +95,5 @@ namespace vix::middleware::utils
     }
 
 } // namespace vix::middleware::utils
+
+#endif

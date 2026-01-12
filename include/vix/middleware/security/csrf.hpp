@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CSRF_HPP
+#define CSRF_HPP
 
 #include <string>
 #include <string_view>
@@ -105,3 +106,5 @@ namespace vix::middleware::security
     }
 
 } // namespace vix::middleware::security
+
+#endif

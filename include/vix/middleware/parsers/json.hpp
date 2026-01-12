@@ -1,4 +1,5 @@
-#pragma once
+#ifndef JSON_HPP
+#define JSON_HPP
 
 #include <cstddef>
 #include <string>
@@ -111,3 +112,5 @@ namespace vix::middleware::parsers
     }
 
 } // namespace vix::middleware::parsers
+
+#endif
