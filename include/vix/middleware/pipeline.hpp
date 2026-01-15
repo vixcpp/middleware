@@ -34,8 +34,8 @@ namespace vix::middleware
 
         struct DevObservabilitySinks
         {
-            std::shared_ptr<vix::middleware::observability::IMetricsSink> metrics{};
-            std::shared_ptr<vix::middleware::observability::IDebugTraceSink> debug{};
+            std::shared_ptr<observability::IMetricsSink> metrics{};
+            std::shared_ptr<observability::IDebugTraceSink> debug{};
 
             DevObservabilitySinks() = default;
         };

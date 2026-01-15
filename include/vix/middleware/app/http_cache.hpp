@@ -34,7 +34,7 @@ namespace vix::middleware::app
     inline std::shared_ptr<vix::cache::Cache>
     make_default_cache(const HttpCacheAppConfig &cfg)
     {
-        auto store = std::make_shared<MemoryStore>();
+        auto store = std::make_shared<vix::cache::MemoryStore>();
         vix::cache::CachePolicy policy;
         policy.ttl_ms = cfg.ttl_ms;
 
@@ -57,7 +57,7 @@ namespace vix::middleware::app
         if (cfg.only_get)
         {
             mw = vix::middleware::app::when(
-                [](const vix::Request &req)
+                [](const vix::vhttp::Request &req)
                 { return req.method() == "GET"; },
                 std::move(mw));
         }
