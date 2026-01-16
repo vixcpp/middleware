@@ -1,3 +1,15 @@
+/**
+ *
+ *  @file json_smoke_test.cpp
+ *  @author Gaspard Kirira
+ *
+ *  Copyright 2025, Gaspard Kirira.  All rights reserved.
+ *  https://github.com/vixcpp/vix
+ *  Use of this source code is governed by a MIT license
+ *  that can be found in the License file.
+ *
+ *  Vix.cpp
+ */
 #include <cassert>
 #include <iostream>
 
@@ -10,36 +22,36 @@ using namespace vix::middleware;
 
 static vix::vhttp::RawRequest make_req(std::string body, std::string ct)
 {
-    namespace http = boost::beast::http;
-    vix::vhttp::RawRequest req{http::verb::post, "/json", 11};
-    req.set(http::field::host, "localhost");
-    req.set(http::field::content_type, ct);
-    req.body() = std::move(body);
-    req.prepare_payload();
-    return req;
+  namespace http = boost::beast::http;
+  vix::vhttp::RawRequest req{http::verb::post, "/json", 11};
+  req.set(http::field::host, "localhost");
+  req.set(http::field::content_type, ct);
+  req.body() = std::move(body);
+  req.prepare_payload();
+  return req;
 }
 
 int main()
 {
-    namespace http = boost::beast::http;
+  namespace http = boost::beast::http;
 
-    auto raw = make_req(R"({"x":1})", "application/json; charset=utf-8");
-    http::response<http::string_body> res;
+  auto raw = make_req(R"({"x":1})", "application/json; charset=utf-8");
+  http::response<http::string_body> res;
 
-    vix::vhttp::Request req(raw, {});
-    vix::vhttp::ResponseWrapper w(res);
+  vix::vhttp::Request req(raw, {});
+  vix::vhttp::ResponseWrapper w(res);
 
-    HttpPipeline p;
-    p.use(vix::middleware::parsers::json());
+  HttpPipeline p;
+  p.use(vix::middleware::parsers::json());
 
-    p.run(req, w, [&](Request &, Response &)
-          {
+  p.run(req, w, [&](Request &, Response &)
+        {
               auto &jb = req.state<vix::middleware::parsers::JsonBody>();
               w.ok().text(jb.value["x"].dump()); });
 
-    assert(res.result_int() == 200);
-    assert(res.body() == "1");
+  assert(res.result_int() == 200);
+  assert(res.body() == "1");
 
-    std::cout << "[OK] json parser\n";
-    return 0;
+  std::cout << "[OK] json parser\n";
+  return 0;
 }

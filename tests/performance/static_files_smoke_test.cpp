@@ -1,3 +1,15 @@
+/**
+ *
+ *  @file static_files_smoke_test.cpp
+ *  @author Gaspard Kirira
+ *
+ *  Copyright 2025, Gaspard Kirira.  All rights reserved.
+ *  https://github.com/vixcpp/vix
+ *  Use of this source code is governed by a MIT license
+ *  that can be found in the License file.
+ *
+ *  Vix.cpp
+ */
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -12,38 +24,38 @@ using namespace vix::middleware;
 
 static vix::vhttp::RawRequest make_req(std::string target)
 {
-    namespace http = boost::beast::http;
-    vix::vhttp::RawRequest req{http::verb::get, target, 11};
-    req.set(http::field::host, "localhost");
-    return req;
+  namespace http = boost::beast::http;
+  vix::vhttp::RawRequest req{http::verb::get, target, 11};
+  req.set(http::field::host, "localhost");
+  return req;
 }
 
 int main()
 {
-    namespace http = boost::beast::http;
+  namespace http = boost::beast::http;
 
-    // temp dir
-    const auto root = std::filesystem::temp_directory_path() / "vix_static_smoke";
-    std::filesystem::create_directories(root);
-    {
-        std::ofstream f(root / "index.html");
-        f << "<h1>OK</h1>";
-    }
+  // temp dir
+  const auto root = std::filesystem::temp_directory_path() / "vix_static_smoke";
+  std::filesystem::create_directories(root);
+  {
+    std::ofstream f(root / "index.html");
+    f << "<h1>OK</h1>";
+  }
 
-    HttpPipeline p;
-    p.use(performance::static_files(root, {.mount = "/", .index_file = "index.html"}));
+  HttpPipeline p;
+  p.use(performance::static_files(root, {.mount = "/", .index_file = "index.html"}));
 
-    auto raw = make_req("/");
-    http::response<http::string_body> res;
-    vix::vhttp::Request req(raw, {});
-    vix::vhttp::ResponseWrapper w(res);
+  auto raw = make_req("/");
+  http::response<http::string_body> res;
+  vix::vhttp::Request req(raw, {});
+  vix::vhttp::ResponseWrapper w(res);
 
-    p.run(req, w, [&](Request &, Response &)
-          { w.status(404).text("nope"); });
+  p.run(req, w, [&](Request &, Response &)
+        { w.status(404).text("nope"); });
 
-    assert(res.result_int() == 200);
-    assert(res.body().find("OK") != std::string::npos);
+  assert(res.result_int() == 200);
+  assert(res.body().find("OK") != std::string::npos);
 
-    std::cout << "[OK] static_files smoke\n";
-    return 0;
+  std::cout << "[OK] static_files smoke\n";
+  return 0;
 }

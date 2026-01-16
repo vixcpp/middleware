@@ -1,3 +1,11 @@
+#  @file CMakeLists.cpp
+#  @author Gaspard Kirira
+#
+#  Copyright 2025, Gaspard Kirira.  All rights reserved.
+#  https://github.com/vixcpp/vix
+#  Use of this source code is governed by a MIT license
+#  that can be found in the License file.
+#
 # ====================================================================
 # Vix.cpp — Middleware Module (Core HTTP only)
 # ====================================================================
@@ -16,15 +24,14 @@ set(CMAKE_DISABLE_FIND_PACKAGE_VixOrm ON)
 
 include(GNUInstallDirs)
 
-# ------------------------ Global settings ----------------------------
+# Global settings
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# ------------------------ Sources discovery --------------------------
+# Sources discovery
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
-# ------------------------ Required: Core -----------------------------
 option(VIX_MW_FETCH_CORE "Auto-fetch vix::core if missing" ON)
 
 if (NOT TARGET vix::core)
@@ -46,7 +53,7 @@ endif()
 
 set(VIX_CORE_TARGET vix::core)
 
-# ------------------------ Required: Cache ----------------------------
+# Required: Cache
 option(VIX_MW_FETCH_CACHE "Auto-fetch vix::cache if missing" ON)
 
 if (NOT TARGET vix::cache)
@@ -68,7 +75,7 @@ endif()
 
 set(VIX_CACHE_TARGET vix::cache)
 
-# ------------------------ Optional: Utils ----------------------------
+# Optional: Utils
 set(VIX_MW_WITH_UTILS "AUTO" CACHE STRING "Link utils module (AUTO|ON|OFF)")
 set_property(CACHE VIX_MW_WITH_UTILS PROPERTY STRINGS AUTO ON OFF)
 option(VIX_MW_FETCH_UTILS "Auto-fetch vix::utils if missing (when needed)" ON)
@@ -109,7 +116,7 @@ function(vix_mw_try_link_utils onto link_scope)
   endif()
 endfunction()
 
-# ------------------------ Optional: JSON backend ---------------------
+# Optional: JSON backend
 set(VIX_MW_WITH_JSON "AUTO" CACHE STRING "Link JSON backend (AUTO|ON|OFF)")
 set_property(CACHE VIX_MW_WITH_JSON PROPERTY STRINGS AUTO ON OFF)
 
@@ -142,7 +149,7 @@ function(vix_mw_try_link_json onto link_scope)
   endif()
 endfunction()
 
-# ============================== STATIC ===============================
+# STATIC
 if (MIDDLEWARE_SOURCES)
   message(STATUS "[middleware] Building STATIC library with detected sources.")
 
@@ -162,14 +169,12 @@ if (MIDDLEWARE_SOURCES)
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-  # Required deps
   target_link_libraries(vix_middleware
     PUBLIC
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
   )
 
-  # Optional deps
   vix_mw_try_link_utils(vix_middleware PUBLIC)
   vix_mw_try_link_json(vix_middleware PUBLIC)
 
@@ -194,7 +199,7 @@ if (MIDDLEWARE_SOURCES)
   install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
           FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 
-# ============================ HEADER-ONLY ============================
+# HEADER-ONLY
 else()
   message(STATUS "[middleware] Building HEADER-ONLY library (no sources).")
 
@@ -213,13 +218,11 @@ else()
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-  # Required deps
   target_link_libraries(vix_middleware INTERFACE
     ${VIX_CORE_TARGET}
     ${VIX_CACHE_TARGET}
   )
 
-  # Optional deps
   vix_mw_try_link_utils(vix_middleware INTERFACE)
   vix_mw_try_link_json(vix_middleware INTERFACE)
 
@@ -235,7 +238,7 @@ else()
           FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 endif()
 
-# ------------------------ Tests (optional) ---------------------------
+# Tests
 option(VIX_MW_BUILD_TESTS "Build middleware tests" OFF)
 
 if (VIX_MW_BUILD_TESTS)
@@ -244,7 +247,7 @@ if (VIX_MW_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-# ----------------------------- Summary -------------------------------
+# Summary
 message(STATUS "------------------------------------------------------")
 message(STATUS "vix::middleware configured (${PROJECT_VERSION})")
 if (MIDDLEWARE_SOURCES)

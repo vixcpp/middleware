@@ -1,4 +1,17 @@
-#pragma once
+/**
+ *
+ *  @file http_cache.hpp
+ *  @author Gaspard Kirira
+ *
+ *  Copyright 2025, Gaspard Kirira.  All rights reserved.
+ *  https://github.com/vixcpp/vix
+ *  Use of this source code is governed by a MIT license
+ *  that can be found in the License file.
+ *
+ *  Vix.cpp
+ */
+#ifndef VIX_HTTP_CACHE_HPP
+#define VIX_HTTP_CACHE_HPP
 
 #include <memory>
 #include <string>
@@ -14,64 +27,66 @@
 
 namespace vix::middleware::app
 {
-    struct HttpCacheAppConfig
+  struct HttpCacheAppConfig
+  {
+    std::string prefix{"/api/"};
+    bool only_get{true};
+    int ttl_ms{30'000};
+
+    bool allow_bypass{true};
+    std::string bypass_header{"x-vix-cache"};
+    std::string bypass_value{"bypass"};
+
+    std::vector<std::string> vary_headers{};
+    std::shared_ptr<vix::cache::Cache> cache{};
+
+    bool add_debug_header{false};
+    std::string debug_header{"x-vix-cache-status"};
+  };
+
+  inline std::shared_ptr<vix::cache::Cache>
+  make_default_cache(const HttpCacheAppConfig &cfg)
+  {
+    auto store = std::make_shared<vix::cache::MemoryStore>();
+    vix::cache::CachePolicy policy;
+    policy.ttl_ms = cfg.ttl_ms;
+
+    return std::make_shared<vix::cache::Cache>(policy, store);
+  }
+
+  inline vix::App::Middleware http_cache_mw(HttpCacheAppConfig cfg = {})
+  {
+    auto cache = cfg.cache ? std::move(cfg.cache) : make_default_cache(cfg);
+
+    vix::middleware::HttpCacheOptions opt{};
+    opt.allow_bypass = cfg.allow_bypass;
+    opt.bypass_header = cfg.bypass_header;
+    opt.bypass_value = cfg.bypass_value;
+    opt.vary_headers = std::move(cfg.vary_headers);
+
+    auto inner = vix::middleware::http_cache(std::move(cache), opt);
+    auto mw = vix::middleware::app::adapt(std::move(inner));
+
+    if (cfg.only_get)
     {
-        std::string prefix{"/api/"};
-        bool only_get{true};
-        int ttl_ms{30'000};
-
-        bool allow_bypass{true};
-        std::string bypass_header{"x-vix-cache"};
-        std::string bypass_value{"bypass"};
-
-        std::vector<std::string> vary_headers{};
-        std::shared_ptr<vix::cache::Cache> cache{};
-
-        bool add_debug_header{false};
-        std::string debug_header{"x-vix-cache-status"};
-    };
-
-    inline std::shared_ptr<vix::cache::Cache>
-    make_default_cache(const HttpCacheAppConfig &cfg)
-    {
-        auto store = std::make_shared<vix::cache::MemoryStore>();
-        vix::cache::CachePolicy policy;
-        policy.ttl_ms = cfg.ttl_ms;
-
-        return std::make_shared<vix::cache::Cache>(policy, store);
+      mw = vix::middleware::app::when(
+          [](const vix::vhttp::Request &req)
+          { return req.method() == "GET"; },
+          std::move(mw));
     }
 
-    inline vix::App::Middleware http_cache_mw(HttpCacheAppConfig cfg = {})
-    {
-        auto cache = cfg.cache ? std::move(cfg.cache) : make_default_cache(cfg);
+    return mw;
+  }
 
-        vix::middleware::HttpCacheOptions opt{};
-        opt.allow_bypass = cfg.allow_bypass;
-        opt.bypass_header = cfg.bypass_header;
-        opt.bypass_value = cfg.bypass_value;
-        opt.vary_headers = std::move(cfg.vary_headers);
+  inline void install_http_cache(vix::App &app, HttpCacheAppConfig cfg = {})
+  {
+    std::string prefix = cfg.prefix;
+    cfg.prefix.clear();
 
-        auto inner = vix::middleware::http_cache(std::move(cache), opt);
-        auto mw = vix::middleware::app::adapt(std::move(inner));
-
-        if (cfg.only_get)
-        {
-            mw = vix::middleware::app::when(
-                [](const vix::vhttp::Request &req)
-                { return req.method() == "GET"; },
-                std::move(mw));
-        }
-
-        return mw;
-    }
-
-    inline void install_http_cache(vix::App &app, HttpCacheAppConfig cfg = {})
-    {
-        std::string prefix = cfg.prefix;
-        cfg.prefix.clear();
-
-        auto mw = http_cache_mw(std::move(cfg));
-        vix::middleware::app::install(app, std::move(prefix), std::move(mw));
-    }
+    auto mw = http_cache_mw(std::move(cfg));
+    vix::middleware::app::install(app, std::move(prefix), std::move(mw));
+  }
 
 } // namespace vix::middleware::app
+
+#endif
