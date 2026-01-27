@@ -156,18 +156,25 @@ namespace vix::middleware::parsers
     // keep only [a-zA-Z0-9._-]
     std::string out;
     out.reserve(s.size());
-    for (unsigned char c : s)
+
+    for (char ch : s)
     {
-      if ((c >= 'a' && c <= 'z') ||
-          (c >= 'A' && c <= 'Z') ||
-          (c >= '0' && c <= '9') ||
-          c == '.' || c == '_' || c == '-')
+      const unsigned char c = static_cast<unsigned char>(ch);
+
+      if ((c >= static_cast<unsigned char>('a') && c <= static_cast<unsigned char>('z')) ||
+          (c >= static_cast<unsigned char>('A') && c <= static_cast<unsigned char>('Z')) ||
+          (c >= static_cast<unsigned char>('0') && c <= static_cast<unsigned char>('9')) ||
+          c == static_cast<unsigned char>('.') ||
+          c == static_cast<unsigned char>('_') ||
+          c == static_cast<unsigned char>('-'))
       {
         out.push_back(static_cast<char>(c));
       }
     }
+
     if (out.empty())
       out = "file";
+
     return out;
   }
 
@@ -183,15 +190,17 @@ namespace vix::middleware::parsers
   inline std::string random_hex_8()
   {
     std::random_device rd;
-    std::uint32_t x = (std::uint32_t(rd()) << 16) ^ std::uint32_t(rd());
+    std::uint32_t x = (static_cast<std::uint32_t>(rd()) << 16) ^ static_cast<std::uint32_t>(rd());
+
     const char *hex = "0123456789abcdef";
-    std::string out;
-    out.resize(8);
-    for (int i = 7; i >= 0; --i)
+
+    std::string out(8, '\0');
+    for (std::size_t i = out.size(); i-- > 0;)
     {
-      out[i] = hex[x & 0xF];
+      out[i] = hex[static_cast<std::size_t>(x & 0xF)];
       x >>= 4;
     }
+
     return out;
   }
 
