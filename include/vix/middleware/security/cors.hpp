@@ -1,4 +1,3 @@
-
 /**
  *
  *  @file cors.hpp
@@ -14,13 +13,26 @@
 #ifndef VIX_CORS_HPP
 #define VIX_CORS_HPP
 
-#include <algorithm>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include <vix/middleware/middleware.hpp>
+
+// ----------------------------------------------------
+// Fix: some environments define `cors` as a macro.
+// That breaks parsing of `cors(...) { ... }` and causes
+// misleading "missing ';'" errors.
+// ----------------------------------------------------
+#ifdef cors
+#if defined(__GNUC__) || defined(__clang__)
+#pragma push_macro("cors")
+#endif
+#undef cors
+#define VIX_RESTORE_CORS_MACRO 1
+#endif
 
 namespace vix::middleware::security
 {
@@ -40,14 +52,17 @@ namespace vix::middleware::security
   {
     if (a.size() != b.size())
       return false;
+
     for (std::size_t i = 0; i < a.size(); ++i)
     {
       unsigned char ca = static_cast<unsigned char>(a[i]);
       unsigned char cb = static_cast<unsigned char>(b[i]);
+
       if (ca >= 'A' && ca <= 'Z')
         ca = static_cast<unsigned char>(ca - 'A' + 'a');
       if (cb >= 'A' && cb <= 'Z')
         cb = static_cast<unsigned char>(cb - 'A' + 'a');
+
       if (ca != cb)
         return false;
     }
@@ -111,13 +126,14 @@ namespace vix::middleware::security
 
       cap = (c == '-');
     }
-    v = req.header(title);
-    return v;
+    return req.header(title);
   }
 
-  inline MiddlewareFn cors(CorsOptions opt = {})
+  // Return the exact callable type (no alias dependency)
+  inline vix::middleware::MiddlewareFn cors(CorsOptions opt = CorsOptions())
   {
-    return [opt = std::move(opt)](Context &ctx, Next next) mutable
+    return [opt = std::move(opt)](vix::middleware::Context &ctx,
+                                  vix::middleware::Next next) mutable
     {
       auto &req = ctx.req();
       auto &res = ctx.res();
@@ -125,9 +141,11 @@ namespace vix::middleware::security
       const std::string origin = header_any_case(req, "Origin");
       const bool has_origin = !origin.empty();
       const bool allowed = has_origin ? origin_allowed(origin, opt) : false;
+
       const bool is_options = iequals(req.method(), "OPTIONS");
       const std::string acrm = header_any_case(req, "Access-Control-Request-Method");
       const bool is_preflight = is_options && !acrm.empty();
+
       const bool wildcard_ok =
           (opt.allow_any_origin && opt.allowed_origins.empty() && !opt.allow_credentials);
 
@@ -149,18 +167,20 @@ namespace vix::middleware::security
       {
         if (!allowed)
         {
-          Error e;
+          vix::middleware::Error e;
           e.status = 403;
           e.code = "cors_forbidden";
           e.message = "CORS origin not allowed";
           e.details["origin"] = origin;
-          ctx.send_error(normalize(std::move(e)));
+
+          ctx.send_error(vix::middleware::normalize(std::move(e)));
           return;
         }
 
         apply_common();
         res.status(204);
         res.header("Access-Control-Allow-Methods", join_csv(opt.allow_methods));
+
         const std::string acrh = header_any_case(req, "Access-Control-Request-Headers");
         if (!opt.allow_headers.empty())
           res.header("Access-Control-Allow-Headers", join_csv(opt.allow_headers));
@@ -174,9 +194,7 @@ namespace vix::middleware::security
 
       next();
 
-      if (!has_origin)
-        return;
-      if (!allowed)
+      if (!has_origin || !allowed)
         return;
 
       apply_common();
@@ -185,4 +203,12 @@ namespace vix::middleware::security
 
 } // namespace vix::middleware::security
 
+// Restore macro if it existed
+#if defined(VIX_RESTORE_CORS_MACRO)
+#undef VIX_RESTORE_CORS_MACRO
+#if defined(__GNUC__) || defined(__clang__)
+#pragma pop_macro("cors")
 #endif
+#endif
+
+#endif // VIX_CORS_HPP

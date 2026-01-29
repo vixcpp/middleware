@@ -37,7 +37,6 @@ namespace vix::middleware::app
   }
 
   // Adapt Context-based middleware (MiddlewareFn(Context&, Next))
-  // Ex: auth::jwt(opt), auth::api_key(opt), rbac, etc.
   inline vix::App::Middleware adapt_ctx(vix::middleware::MiddlewareFn inner)
   {
     return [inner = std::move(inner),
@@ -57,8 +56,8 @@ namespace vix::middleware::app
   {
     return [pred = std::move(pred),
             mw = std::move(mw)](
-               vix::Request &req,
-               vix::Response &res,
+               vix::vhttp::Request &req,
+               vix::vhttp::ResponseWrapper &res,
                vix::App::Next next) mutable
     {
       if (!pred(req))

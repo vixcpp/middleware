@@ -13,7 +13,12 @@
 #ifndef VIX_APP_MIDDLEWARE_HPP
 #define VIX_APP_MIDDLEWARE_HPP
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <vix/middleware/app/http_cache.hpp>
+#include <vix/http/RequestHandler.hpp>
 
 namespace vix::middleware::app
 {
@@ -32,23 +37,27 @@ namespace vix::middleware::app
 
   inline vix::App::Middleware chain(std::vector<vix::App::Middleware> mws)
   {
-    return [mws = std::move(mws)](vix::Request &req, vix::Response &res, vix::App::Next next) mutable
+    return [mws = std::move(mws)](
+               vix::vhttp::Request &req,
+               vix::vhttp::ResponseWrapper &res,
+               vix::App::Next next) mutable
     {
-      std::size_t i = 0;
+      auto i = std::make_shared<std::size_t>(0);
+      auto step = std::make_shared<vix::App::Next>();
 
-      vix::App::Next step = [&]()
+      *step = [i, step, &mws, &req, &res, next]() mutable
       {
-        if (i >= mws.size())
+        if (*i >= mws.size())
         {
           next();
           return;
         }
 
-        auto &mw = mws[i++];
-        mw(req, res, step);
+        auto &mw = mws[(*i)++];
+        mw(req, res, *step);
       };
 
-      step();
+      (*step)();
     };
   }
 
@@ -62,6 +71,6 @@ namespace vix::middleware::app
     return chain(std::vector<vix::App::Middleware>{std::move(a), std::move(b), std::move(c)});
   }
 
-}
+} // namespace vix::middleware::app
 
 #endif
