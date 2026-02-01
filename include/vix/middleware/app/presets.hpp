@@ -38,6 +38,8 @@
 #include <vix/middleware/auth/api_key.hpp>
 #include <vix/middleware/auth/rbac.hpp>
 #include <vix/middleware/app/app_middleware.hpp>
+#include <vix/middleware/http/cookies.hpp>
+#include <vix/middleware/auth/session.hpp>
 
 namespace vix::middleware::app
 {
@@ -345,6 +347,82 @@ namespace vix::middleware::app
     opt.verify_exp = verify_exp;
 
     return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
+  }
+
+  inline vix::App::Middleware session_dev(
+      std::string secret,
+      std::string cookie_name = "sid",
+      std::chrono::seconds ttl = std::chrono::hours(24 * 7),
+      bool secure = false,
+      std::string same_site = "Lax",
+      bool http_only = true,
+      std::string cookie_path = "/",
+      bool auto_create = true)
+  {
+    vix::middleware::auth::SessionOptions opt{};
+    opt.secret = std::move(secret);
+    opt.cookie_name = std::move(cookie_name);
+    opt.cookie_path = std::move(cookie_path);
+    opt.secure = secure;
+    opt.http_only = http_only;
+    opt.same_site = std::move(same_site);
+    opt.ttl = ttl;
+    opt.auto_create = auto_create;
+
+    return adapt_ctx(vix::middleware::auth::session(std::move(opt)));
+  }
+
+  inline vix::App::Middleware session_strict(
+      std::string secret,
+      std::string cookie_name = "sid",
+      std::chrono::seconds ttl = std::chrono::hours(24 * 7))
+  {
+    vix::middleware::auth::SessionOptions opt{};
+    opt.secret = std::move(secret);
+    opt.cookie_name = std::move(cookie_name);
+    opt.cookie_path = "/";
+
+    // strict defaults
+    opt.secure = true;
+    opt.http_only = true;
+    opt.same_site = "None"; // needed for cross-site cookies, requires Secure=true
+    opt.ttl = ttl;
+    opt.auto_create = true;
+
+    return adapt_ctx(vix::middleware::auth::session(std::move(opt)));
+  }
+
+  inline vix::App::Middleware set_cookie_dev(
+      std::string name,
+      std::string value,
+      int max_age = 3600,
+      bool secure = false,
+      std::string same_site = "Lax",
+      bool http_only = true,
+      std::string path = "/")
+  {
+    return adapt_ctx(
+        [name = std::move(name),
+         value = std::move(value),
+         max_age,
+         secure,
+         same_site = std::move(same_site),
+         http_only,
+         path = std::move(path)](vix::middleware::Context &ctx, vix::middleware::Next next) mutable
+        {
+          next();
+
+          vix::middleware::http::Cookie c;
+          c.name = std::move(name);
+          c.value = std::move(value);
+          c.max_age = max_age;
+          c.secure = secure;
+          c.same_site = std::move(same_site);
+          c.http_only = http_only;
+          c.path = std::move(path);
+
+          vix::middleware::http::set(ctx.res(), c);
+        });
   }
 
   inline vix::App::Middleware api_key_auth(

@@ -33,6 +33,7 @@ vix_add_test(middleware_pipeline_smoke_test pipeline/pipeline_smoke_test.cpp)
 
 # HTTP
 vix_add_test(middleware_http_cache_smoke_test http/http_cache_smoke_test.cpp)
+vix_add_test(middleware_cookies_smoke_test http/cookies_smoke_test.cpp)
 
 # Core
 vix_add_test(middleware_context_smoke_test       core/context_smoke_test.cpp)
@@ -80,3 +81,4 @@ vix_add_test(middleware_token_bucket_smoke_test  utils/token_bucket_smoke_test.c
 vix_add_test(middleware_api_key_smoke_test  auth/api_key_smoke_test.cpp)
 vix_add_test(middleware_jwt_smoke_test      auth/jwt_smoke_test.cpp)
 vix_add_test(middleware_rbac_smoke_test     auth/rbac_smoke_test.cpp)
+vix_add_test(middleware_session_smoke_test  auth/session_smoke_test.cpp)
