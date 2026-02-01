@@ -55,11 +55,11 @@ int main()
     assert(m["b"] == "hello");
     assert(m["theme"] == "dark");
 
-    auto a = vix::middleware::http::get(req, "a");
+    auto a = vix::middleware::cookies::get(req, "a");
     assert(a.has_value());
     assert(*a == "1");
 
-    auto missing = vix::middleware::http::get(req, "missing");
+    auto missing = vix::middleware::cookies::get(req, "missing");
     assert(!missing.has_value());
   }
 
@@ -68,9 +68,9 @@ int main()
     auto raw = make_req_with_cookie("  a =  1  ;   b= hello  ;c=world ");
     vix::vhttp::Request req(raw, {});
 
-    auto a = vix::middleware::http::get(req, "a");
-    auto b = vix::middleware::http::get(req, "b");
-    auto c = vix::middleware::http::get(req, "c");
+    auto a = vix::middleware::cookies::get(req, "a");
+    auto b = vix::middleware::cookies::get(req, "b");
+    auto c = vix::middleware::cookies::get(req, "c");
 
     assert(a && *a == "1");
     assert(b && *b == "hello");
@@ -82,7 +82,7 @@ int main()
     http::response<http::string_body> res;
     vix::vhttp::ResponseWrapper w(res);
 
-    vix::middleware::http::Cookie c;
+    vix::middleware::cookies::Cookie c;
     c.name = "vix.sid";
     c.value = "TOKEN123";
     c.path = "/";
@@ -91,7 +91,7 @@ int main()
     c.same_site = "Lax";
     c.max_age = 3600;
 
-    vix::middleware::http::set(w, c);
+    vix::middleware::cookies::set(w, c);
 
     const std::string set_cookie = get_header_value(res, http::field::set_cookie);
     assert(!set_cookie.empty());
@@ -110,16 +110,16 @@ int main()
     http::response<http::string_body> res;
     vix::vhttp::ResponseWrapper w(res);
 
-    vix::middleware::http::Cookie a;
+    vix::middleware::cookies::Cookie a;
     a.name = "a";
     a.value = "1";
 
-    vix::middleware::http::Cookie b;
+    vix::middleware::cookies::Cookie b;
     b.name = "b";
     b.value = "2";
 
-    vix::middleware::http::set(w, a);
-    vix::middleware::http::set(w, b);
+    vix::middleware::cookies::set(w, a);
+    vix::middleware::cookies::set(w, b);
 
     // Count Set-Cookie occurrences in the raw header sequence
     int count = 0;

@@ -160,7 +160,7 @@ namespace vix::middleware::auth
       bool has_session = false;
       vix::middleware::auth::Session tmp;
 
-      if (auto raw = vix::middleware::http::get(ctx.req(), opt.cookie_name))
+      if (auto raw = vix::middleware::cookies::get(ctx.req(), opt.cookie_name))
       {
         std::string sid;
         if (verify_sid(*raw, opt.secret, sid))
@@ -194,7 +194,7 @@ namespace vix::middleware::auth
       {
         opt.store->destroy(ps->id);
 
-        vix::middleware::http::Cookie c;
+        vix::middleware::cookies::Cookie c;
         c.name = opt.cookie_name;
         c.value = "";
         c.path = opt.cookie_path;
@@ -202,7 +202,7 @@ namespace vix::middleware::auth
         c.secure = opt.secure;
         c.same_site = opt.same_site;
         c.max_age = 0;
-        vix::middleware::http::set(ctx.res(), c);
+        vix::middleware::cookies::set(ctx.res(), c);
         return;
       }
 
@@ -211,7 +211,7 @@ namespace vix::middleware::auth
 
       if (ps->is_new)
       {
-        vix::middleware::http::Cookie c;
+        vix::middleware::cookies::Cookie c;
         c.name = opt.cookie_name;
         c.value = sign_sid(ps->id, opt.secret);
         c.path = opt.cookie_path;
@@ -219,7 +219,7 @@ namespace vix::middleware::auth
         c.secure = opt.secure;
         c.same_site = opt.same_site;
         c.max_age = static_cast<int>(opt.ttl.count());
-        vix::middleware::http::set(ctx.res(), c);
+        vix::middleware::cookies::set(ctx.res(), c);
       }
     };
   }

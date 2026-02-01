@@ -412,7 +412,7 @@ namespace vix::middleware::app
         {
           next();
 
-          vix::middleware::http::Cookie c;
+          vix::middleware::cookies::Cookie c;
           c.name = std::move(name);
           c.value = std::move(value);
           c.max_age = max_age;
@@ -421,7 +421,7 @@ namespace vix::middleware::app
           c.http_only = http_only;
           c.path = std::move(path);
 
-          vix::middleware::http::set(ctx.res(), c);
+          vix::middleware::cookies::set(ctx.res(), c);
         });
   }
 

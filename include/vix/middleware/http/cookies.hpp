@@ -12,7 +12,7 @@
 
 #include <vix/middleware/middleware.hpp>
 
-namespace vix::middleware::http
+namespace vix::middleware::cookies
 {
   struct Cookie
   {
@@ -132,12 +132,11 @@ namespace vix::middleware::http
 
     const std::string v = build_set_cookie_value(c);
 
-    // IMPORTANT: repeatable header
     res.res.insert(
         string_view{"Set-Cookie", 10},
         string_view{v.data(), v.size()});
   }
 
-} // namespace vix::middleware::http
+} // namespace vix::middleware::cookies
 
 #endif
