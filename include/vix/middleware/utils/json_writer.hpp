@@ -22,6 +22,17 @@
 
 namespace vix::middleware::utils
 {
+  /**
+   * @brief Escape a string for safe inclusion in a JSON string literal.
+   *
+   * This performs a minimal JSON escaping:
+   * - escapes quotes and backslashes
+   * - escapes common control characters (b, f, n, r, t)
+   * - replaces other ASCII control chars (< 0x20) with a space
+   *
+   * @param s Input string view.
+   * @return Escaped string.
+   */
   inline std::string json_escape(std::string_view s)
   {
     std::string out;
@@ -63,13 +74,43 @@ namespace vix::middleware::utils
     return out;
   }
 
+  /**
+   * @brief Tiny incremental JSON string builder.
+   *
+   * JsonWriter builds a JSON document by appending tokens into an internal string.
+   * It supports:
+   * - objects and arrays
+   * - string, integer, boolean, null values
+   * - object_of(map) convenience helper
+   *
+   * This is intentionally lightweight and does not aim to be a full JSON library.
+   * It is useful for small structured payloads and middleware-produced responses.
+   */
   class JsonWriter final
   {
   public:
+    /**
+     * @brief Construct a JsonWriter with a small pre-reserved buffer.
+     */
     JsonWriter() { s_.reserve(256); }
 
+    /**
+     * @brief Get the current JSON string.
+     *
+     * @return Built JSON document.
+     */
     std::string str() const { return s_; }
 
+    /**
+     * @brief Begin a JSON object.
+     *
+     * Example:
+     * @code
+     * w.begin_obj();
+     * w.key("a"); w.number(1);
+     * w.end_obj();
+     * @endcode
+     */
     void begin_obj()
     {
       sep();
@@ -78,6 +119,9 @@ namespace vix::middleware::utils
       first_.push_back(true);
     }
 
+    /**
+     * @brief End the current JSON object.
+     */
     void end_obj()
     {
       s_ += "}";
@@ -86,6 +130,9 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
+    /**
+     * @brief Begin a JSON array.
+     */
     void begin_arr()
     {
       sep();
@@ -94,6 +141,9 @@ namespace vix::middleware::utils
       first_.push_back(true);
     }
 
+    /**
+     * @brief End the current JSON array.
+     */
     void end_arr()
     {
       s_ += "]";
@@ -102,9 +152,16 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
+    /**
+     * @brief Write an object key.
+     *
+     * This must be called when the current container is an object.
+     * The next write must be a value.
+     *
+     * @param k Key name.
+     */
     void key(std::string_view k)
     {
-      // inside object
       if (!first_.empty() && !first_.back())
         s_ += ",";
       if (!first_.empty())
@@ -113,10 +170,14 @@ namespace vix::middleware::utils
       s_ += "\"";
       s_ += json_escape(k);
       s_ += "\":";
-      // next write is a value
       after_key_ = true;
     }
 
+    /**
+     * @brief Write a JSON string value.
+     *
+     * @param v String value.
+     */
     void string(std::string_view v)
     {
       sep();
@@ -126,6 +187,11 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
+    /**
+     * @brief Write a JSON integer number.
+     *
+     * @param v Integer value.
+     */
     void number(std::int64_t v)
     {
       sep();
@@ -133,6 +199,11 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
+    /**
+     * @brief Write a JSON boolean value.
+     *
+     * @param v Boolean value.
+     */
     void boolean(bool v)
     {
       sep();
@@ -140,6 +211,9 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
+    /**
+     * @brief Write a JSON null value.
+     */
     void null()
     {
       sep();
@@ -147,7 +221,13 @@ namespace vix::middleware::utils
       mark_value_written();
     }
 
-    // convenience: object from map<string,string>
+    /**
+     * @brief Convenience helper: write an object from a map<string,string>.
+     *
+     * Keys and values are written as JSON strings.
+     *
+     * @param m Map to serialize.
+     */
     void object_of(const std::unordered_map<std::string, std::string> &m)
     {
       begin_obj();
@@ -160,6 +240,11 @@ namespace vix::middleware::utils
     }
 
   private:
+    /**
+     * @brief Insert separators between values when needed.
+     *
+     * Objects handle commas in key(). Arrays handle commas here.
+     */
     void sep()
     {
       if (after_key_)
@@ -170,13 +255,14 @@ namespace vix::middleware::utils
 
       if (!first_.empty())
       {
-        // arrays need commas between values
-        // objects are handled by key()
         if (stack_.back() == ']' && !first_.back())
           s_ += ",";
       }
     }
 
+    /**
+     * @brief Mark that a value has been written in the current array.
+     */
     void mark_value_written()
     {
       if (!first_.empty() && stack_.back() == ']')
@@ -192,4 +278,4 @@ namespace vix::middleware::utils
 
 } // namespace vix::middleware::utils
 
-#endif
+#endif // VIX_JSON_WRITER_HPP

@@ -23,6 +23,15 @@
 
 namespace vix::middleware::utils
 {
+  /**
+   * @brief Convert a string to lowercase (ASCII only).
+   *
+   * This helper is intended for HTTP header normalization and does not
+   * perform locale-aware or UTF-8 transformations.
+   *
+   * @param s Input string.
+   * @return Lowercased copy of the input.
+   */
   inline std::string to_lower(std::string s)
   {
     for (char &c : s)
@@ -30,6 +39,13 @@ namespace vix::middleware::utils
     return s;
   }
 
+  /**
+   * @brief Case-insensitive ASCII string comparison.
+   *
+   * @param a First string.
+   * @param b Second string.
+   * @return true if strings are equal ignoring ASCII case.
+   */
   inline bool iequals(std::string_view a, std::string_view b)
   {
     if (a.size() != b.size())
@@ -48,6 +64,14 @@ namespace vix::middleware::utils
     return true;
   }
 
+  /**
+   * @brief Trim ASCII whitespace from both ends of a string view.
+   *
+   * Whitespace includes space, tab, CR and LF.
+   *
+   * @param s Input string view.
+   * @return Trimmed string copy.
+   */
   inline std::string trim_copy(std::string_view s)
   {
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r' || s.front() == '\n'))
@@ -57,6 +81,14 @@ namespace vix::middleware::utils
     return std::string(s);
   }
 
+  /**
+   * @brief Split a comma-separated header value into individual tokens.
+   *
+   * Each token is trimmed of surrounding whitespace. Empty tokens are ignored.
+   *
+   * @param s CSV string view.
+   * @return Vector of trimmed tokens.
+   */
   inline std::vector<std::string> split_csv(std::string_view s)
   {
     std::vector<std::string> out;
@@ -74,6 +106,12 @@ namespace vix::middleware::utils
     return out;
   }
 
+  /**
+   * @brief Join a list of strings into a comma-separated value.
+   *
+   * @param a Vector of strings.
+   * @return CSV string.
+   */
   inline std::string join_csv(const std::vector<std::string> &a)
   {
     std::string out;
@@ -86,6 +124,14 @@ namespace vix::middleware::utils
     return out;
   }
 
+  /**
+   * @brief Normalize all keys in a header map to lowercase.
+   *
+   * Values are moved into a new map with lowercased keys. The input map
+   * is replaced in-place.
+   *
+   * @param h Header map to normalize.
+   */
   inline void normalize_keys_in_place(std::unordered_map<std::string, std::string> &h)
   {
     std::unordered_map<std::string, std::string> out;
@@ -97,9 +143,17 @@ namespace vix::middleware::utils
     h.swap(out);
   }
 
+  /**
+   * @brief Extract the first token from a comma-separated value.
+   *
+   * Commonly used for headers like X-Forwarded-For where the first entry
+   * represents the original client.
+   *
+   * @param v Header value.
+   * @return First trimmed token.
+   */
   inline std::string first_token(std::string_view v)
   {
-    // For "x-forwarded-for: client, proxy1, proxy2"
     auto comma = v.find(',');
     if (comma != std::string_view::npos)
       v = v.substr(0, comma);
@@ -108,4 +162,4 @@ namespace vix::middleware::utils
 
 } // namespace vix::middleware::utils
 
-#endif
+#endif // VIX_HEADER_UTILS_HPP

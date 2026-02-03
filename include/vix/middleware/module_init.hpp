@@ -13,6 +13,11 @@
 #ifndef VIX_MIDDLEWARE_MODULE_INIT_HPP
 #define VIX_MIDDLEWARE_MODULE_INIT_HPP
 
+/**
+ * @brief Module initialization entry point.
+ *
+ * Called when the middleware module is loaded.
+ */
 extern "C" void vix_middleware_module_init();
 
-#endif
+#endif // VIX_MIDDLEWARE_MODULE_INIT_HPP

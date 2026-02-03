@@ -36,23 +36,34 @@ namespace vix::middleware
 {
   namespace http = boost::beast::http;
 
+  /**
+   * @brief Options for the HTTP response cache middleware.
+   */
   struct HttpCacheOptions
   {
     std::vector<std::string> vary_headers{};
     bool cache_200_only{true};
     bool require_body{false};
+
     bool allow_bypass{true};
     std::string bypass_header{"x-vix-cache"};
     std::string bypass_value{"bypass"};
+
     std::function<vix::cache::CacheContext(Request &)> context_provider{};
   };
 
+  /**
+   * @brief Current monotonic time in milliseconds.
+   */
   inline std::int64_t now_ms()
   {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
   }
 
+  /**
+   * @brief Extract the raw query string from an HTTP target (without '?').
+   */
   inline std::string extract_query_raw_from_target(std::string_view target)
   {
     const auto qpos = target.find('?');
@@ -63,6 +74,9 @@ namespace vix::middleware
     return std::string(target.substr(qpos + 1));
   }
 
+  /**
+   * @brief Convert request headers to a key/value map.
+   */
   inline std::unordered_map<std::string, std::string> request_headers_map(Request &req)
   {
     std::unordered_map<std::string, std::string> h;
@@ -75,6 +89,9 @@ namespace vix::middleware
     return h;
   }
 
+  /**
+   * @brief Convert response headers to a key/value map.
+   */
   inline std::unordered_map<std::string, std::string>
   response_headers_map(http::response<http::string_body> &res)
   {
@@ -88,6 +105,9 @@ namespace vix::middleware
     return h;
   }
 
+  /**
+   * @brief Check if the request asks to bypass cache via a header.
+   */
   inline bool has_bypass(Request &req, const HttpCacheOptions &opt)
   {
     if (!opt.allow_bypass)
@@ -109,6 +129,9 @@ namespace vix::middleware
     return lower(v) == lower(opt.bypass_value);
   }
 
+  /**
+   * @brief ASCII case-insensitive equality.
+   */
   inline bool ieq_ascii(std::string_view a, std::string_view b)
   {
     if (a.size() != b.size())
@@ -123,6 +146,12 @@ namespace vix::middleware
     return true;
   }
 
+  /**
+   * @brief HTTP cache middleware for GET responses.
+   *
+   * Computes a cache key from method/path/query/headers (with optional vary headers),
+   * replays cached responses on hit, and stores successful responses on miss.
+   */
   inline HttpMiddleware http_cache(
       std::shared_ptr<vix::cache::Cache> cache,
       HttpCacheOptions opt = {})
@@ -213,4 +242,4 @@ namespace vix::middleware
 
 } // namespace vix::middleware
 
-#endif
+#endif // VIX_MIDDLEWARE_HTTP_CACHE_HPP

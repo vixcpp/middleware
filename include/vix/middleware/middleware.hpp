@@ -33,8 +33,13 @@ namespace vix::middleware
   using Error = vix::mw::Error;
   using Services = vix::mw::Services;
   using Context = vix::mw::Context;
+
+  /** @brief Middleware function using vix::mw Context and Next. */
   using MiddlewareFn = std::function<void(Context &, Next)>;
+
+  /** @brief Legacy HTTP middleware function signature (Request, Response, Next). */
   using HttpMiddleware = std::function<void(Request &, Response &, Next)>;
+
   using Hooks = vix::mw::Hooks;
   using vix::mw::bad_request;
   using vix::mw::conflict;
@@ -48,6 +53,12 @@ namespace vix::middleware
   using vix::mw::to_json;
   using vix::mw::unauthorized;
 
+  /**
+   * @brief Adapt a legacy HttpMiddleware to a Context-based middleware.
+   *
+   * @param legacy Legacy middleware (Request, Response, Next).
+   * @return MiddlewareFn Context-based middleware wrapper.
+   */
   inline MiddlewareFn from_http_middleware(HttpMiddleware legacy)
   {
     return [legacy = std::move(legacy)](Context &ctx, Next next) mutable
@@ -56,6 +67,13 @@ namespace vix::middleware
     };
   }
 
+  /**
+   * @brief Adapt a Context-based middleware to a legacy HttpMiddleware.
+   *
+   * @param mw Context-based middleware.
+   * @param services Shared services injected into the Context.
+   * @return HttpMiddleware Legacy middleware wrapper.
+   */
   inline HttpMiddleware to_http_middleware(MiddlewareFn mw, Services &services)
   {
     return [mw = std::move(mw), &services](Request &req, Response &res, Next next) mutable
@@ -65,12 +83,24 @@ namespace vix::middleware
     };
   }
 
+  /**
+   * @brief No-op middleware that simply calls next().
+   */
   inline MiddlewareFn noop()
   {
     return [](Context &, Next next)
     { next(); };
   }
 
+  /**
+   * @brief Conditionally enable a middleware.
+   *
+   * If disabled, returns a no-op middleware.
+   *
+   * @param enabled Whether the middleware is enabled.
+   * @param mw Middleware to use when enabled.
+   * @return MiddlewareFn Enabled middleware or noop().
+   */
   inline MiddlewareFn use_if(bool enabled, MiddlewareFn mw)
   {
     return enabled ? std::move(mw) : noop();
@@ -78,4 +108,4 @@ namespace vix::middleware
 
 } // namespace vix::middleware
 
-#endif
+#endif // VIX_MIDDLEWARE_HPP

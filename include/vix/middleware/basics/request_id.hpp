@@ -25,22 +25,55 @@
 
 namespace vix::middleware::basics
 {
+  /**
+   * @brief Typed request state holding the request id.
+   *
+   * This is stored in the request context so other middleware/handlers can
+   * retrieve it via ctx.req().try_state<RequestId>().
+   */
   struct RequestId final
   {
     std::string value;
   };
 
+  /**
+   * @brief Configuration options for request_id() middleware.
+   */
   struct RequestIdOptions final
   {
+    /**
+     * @brief Header name used to read/write the request id.
+     *
+     * The header name is normalized to lowercase ASCII internally.
+     */
     std::string header_name{"x-request-id"};
+
+    /**
+     * @brief If true, accept a valid incoming request id from the header.
+     */
     bool accept_incoming{true};
+
+    /**
+     * @brief If true, generate an id when none is present/accepted.
+     */
     bool generate_if_missing{true};
+
+    /**
+     * @brief If true, always set the response header when an id exists.
+     */
     bool always_set_response_header{true};
   };
 
+  /**
+   * @brief Validate that a request id is safe and reasonably sized.
+   *
+   * Allowed characters: [A-Za-z0-9-_.:] with length in [8..128].
+   *
+   * @param s Candidate request id.
+   * @return true if the value is acceptable.
+   */
   inline bool is_reasonable_request_id(std::string_view s)
   {
-    // Allow: [A-Za-z0-9-_.:] and length [8..128]
     if (s.size() < 8 || s.size() > 128)
       return false;
 
@@ -59,6 +92,12 @@ namespace vix::middleware::basics
     return true;
   }
 
+  /**
+   * @brief Convert a 64-bit integer to a 16-char lowercase hex string.
+   *
+   * @param v Input value.
+   * @return 16 hex characters (lowercase).
+   */
   inline std::string hex64(std::uint64_t v)
   {
     static constexpr char kHex[] = "0123456789abcdef";
@@ -72,15 +111,26 @@ namespace vix::middleware::basics
     return out;
   }
 
+  /**
+   * @brief Generate a new request id.
+   *
+   * The id is 32 lowercase hex characters made from:
+   * - steady_clock nanoseconds timestamp (mixed)
+   * - thread-local random 64-bit value (mixed)
+   *
+   * @return New request id.
+   */
   inline std::string generate_request_id()
   {
-    // time + random64 => 32 hex chars
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
     const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+
     static thread_local std::mt19937_64 rng{std::random_device{}()};
     const std::uint64_t r = rng();
+
     const std::uint64_t a = static_cast<std::uint64_t>(ns) ^ (r + 0x9e3779b97f4a7c15ULL);
     const std::uint64_t b = (r << 1) ^ static_cast<std::uint64_t>(ns >> 1);
+
     std::string id;
     id.reserve(32);
     id += hex64(a);
@@ -88,6 +138,18 @@ namespace vix::middleware::basics
     return id;
   }
 
+  /**
+   * @brief Request id middleware.
+   *
+   * Behavior:
+   * - Optionally reads an incoming request id from the configured header.
+   * - If missing (or invalid), optionally generates a new request id.
+   * - Stores the id in typed request state (RequestId).
+   * - Optionally writes the id back to the response header.
+   *
+   * @param opt Middleware options.
+   * @return A middleware function (MiddlewareFn).
+   */
   inline MiddlewareFn request_id(RequestIdOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next)
@@ -129,4 +191,4 @@ namespace vix::middleware::basics
 
 } // namespace vix::middleware::basics
 
-#endif
+#endif // VIX_REQUEST_ID_HPP

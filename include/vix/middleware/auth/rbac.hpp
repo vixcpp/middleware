@@ -28,32 +28,47 @@
 
 namespace vix::middleware::auth
 {
+  /**
+   * @brief Authorization context (subject, roles, permissions).
+   */
   struct Authz final
   {
     std::string subject;
     std::unordered_set<std::string> roles;
     std::unordered_set<std::string> perms;
 
+    /** @brief Check if the user has a role. */
     bool has_role(std::string_view r) const
     {
       return roles.find(std::string(r)) != roles.end();
     }
 
+    /** @brief Check if the user has a permission. */
     bool has_perm(std::string_view p) const
     {
       return perms.find(std::string(p)) != perms.end();
     }
   };
 
+  /**
+   * @brief Optional extension point to enrich roles/permissions.
+   */
   struct PermissionResolver
   {
     virtual ~PermissionResolver() = default;
+
+    /**
+     * @brief Enrich roles/perms for a subject.
+     */
     virtual void resolve(
         std::string_view subject,
         std::unordered_set<std::string> &roles_inout,
         std::unordered_set<std::string> &perms_inout) = 0;
   };
 
+  /**
+   * @brief RBAC extraction and behavior options.
+   */
   struct RbacOptions
   {
     std::string roles_key{"roles"};
@@ -83,6 +98,9 @@ namespace vix::middleware::auth
     }
   }
 
+  /**
+   * @brief Extract a set of strings from a JSON payload key (with optional fallback).
+   */
   inline std::unordered_set<std::string> extract_set(
       const nlohmann::json &payload,
       std::string_view key_primary,
@@ -99,6 +117,9 @@ namespace vix::middleware::auth
     return out;
   }
 
+  /**
+   * @brief Build an Authz context from JWT claims.
+   */
   inline Authz build_authz_from_jwt(const JwtClaims &claims, const RbacOptions &opt)
   {
     Authz a;
@@ -135,6 +156,9 @@ namespace vix::middleware::auth
     return a;
   }
 
+  /**
+   * @brief Optionally enrich Authz via a resolver registered in services.
+   */
   inline void maybe_enrich_with_resolver(Context &ctx, Authz &a, const RbacOptions &opt)
   {
     if (!opt.use_resolver)
@@ -147,6 +171,9 @@ namespace vix::middleware::auth
     resolver->resolve(a.subject, a.roles, a.perms);
   }
 
+  /**
+   * @brief Send a 403 error response.
+   */
   inline void send_forbidden(
       Context &ctx,
       std::string code,
@@ -161,6 +188,9 @@ namespace vix::middleware::auth
     ctx.send_error(normalize(std::move(e)));
   }
 
+  /**
+   * @brief Send a 401 error response (WWW-Authenticate: Bearer).
+   */
   inline void send_unauthorized(Context &ctx, std::string code, std::string message)
   {
     Error e;
@@ -171,6 +201,9 @@ namespace vix::middleware::auth
     ctx.send_error(normalize(std::move(e)));
   }
 
+  /**
+   * @brief Build and store Authz in state from JwtClaims.
+   */
   inline MiddlewareFn rbac_context(RbacOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -198,6 +231,9 @@ namespace vix::middleware::auth
     };
   }
 
+  /**
+   * @brief Require a single role.
+   */
   inline MiddlewareFn require_role(std::string role)
   {
     return [role = std::move(role)](Context &ctx, Next next)
@@ -219,6 +255,9 @@ namespace vix::middleware::auth
     };
   }
 
+  /**
+   * @brief Require at least one role from a list.
+   */
   inline MiddlewareFn require_any_role(std::vector<std::string> roles)
   {
     return [roles = std::move(roles)](Context &ctx, Next next)
@@ -241,6 +280,9 @@ namespace vix::middleware::auth
     };
   }
 
+  /**
+   * @brief Require a single permission.
+   */
   inline MiddlewareFn require_perm(std::string perm)
   {
     return [perm = std::move(perm)](Context &ctx, Next next)
@@ -262,6 +304,9 @@ namespace vix::middleware::auth
     };
   }
 
+  /**
+   * @brief Require at least one permission from a list.
+   */
   inline MiddlewareFn require_any_perm(std::vector<std::string> perms)
   {
     return [perms = std::move(perms)](Context &ctx, Next next)
@@ -284,6 +329,9 @@ namespace vix::middleware::auth
     };
   }
 
+  /**
+   * @brief Require all permissions from a list.
+   */
   inline MiddlewareFn require_all_perms(std::vector<std::string> perms)
   {
     return [perms = std::move(perms)](Context &ctx, Next next)
@@ -310,4 +358,4 @@ namespace vix::middleware::auth
 
 } // namespace vix::middleware::auth
 
-#endif
+#endif // VIX_RBAC_HPP

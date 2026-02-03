@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <random>
 #include <string>
 #include <string_view>
@@ -31,6 +32,9 @@
 
 namespace vix::middleware::parsers
 {
+  /**
+   * @brief Saved multipart file metadata.
+   */
   struct MultipartFile
   {
     std::string field_name;
@@ -40,6 +44,9 @@ namespace vix::middleware::parsers
     std::size_t bytes{0};
   };
 
+  /**
+   * @brief Parsed multipart form with saved files + text fields.
+   */
   struct MultipartForm
   {
     std::vector<MultipartFile> files;
@@ -48,6 +55,9 @@ namespace vix::middleware::parsers
     std::size_t total_files_bytes{0};
   };
 
+  /**
+   * @brief Multipart save options and limits.
+   */
   struct MultipartSaveOptions
   {
     bool require_boundary{true};
@@ -70,6 +80,7 @@ namespace vix::middleware::parsers
     bool store_in_state{true};
   };
 
+  /** @brief Trim ASCII whitespace from both ends. */
   inline std::string trim(std::string s)
   {
     auto is_ws = [](unsigned char c)
@@ -82,6 +93,7 @@ namespace vix::middleware::parsers
     return s;
   }
 
+  /** @brief Read a header value from a CRLF-separated header block. */
   inline std::string header_value(std::string_view headers, std::string_view key)
   {
     auto lower = [](char c)
@@ -120,9 +132,9 @@ namespace vix::middleware::parsers
     return {};
   }
 
+  /** @brief Extract param from Content-Disposition: name="x", filename="a.png". */
   inline std::string param_from_content_disposition(std::string_view cd, std::string_view name)
   {
-    // name="x" or filename="a.png"
     auto pos = cd.find(name);
     if (pos == std::string_view::npos)
       return {};
@@ -151,9 +163,9 @@ namespace vix::middleware::parsers
     return trim(std::string(cd.substr(pos, end - pos)));
   }
 
+  /** @brief Sanitize a filename token to [a-zA-Z0-9._-]. */
   inline std::string safe_token(std::string s)
   {
-    // keep only [a-zA-Z0-9._-]
     std::string out;
     out.reserve(s.size());
 
@@ -178,15 +190,16 @@ namespace vix::middleware::parsers
     return out;
   }
 
+  /** @brief Get last-dot file extension (".png"). */
   inline std::string filename_extension(std::string_view filename)
   {
-    // Keep a simple extension like ".png", ".tar.gz" is tricky; we keep last dot extension only.
     auto p = filename.rfind('.');
     if (p == std::string_view::npos || p == 0 || p + 1 >= filename.size())
       return {};
-    return std::string(filename.substr(p)); // includes '.'
+    return std::string(filename.substr(p));
   }
 
+  /** @brief Random 8-hex string. */
   inline std::string random_hex_8()
   {
     std::random_device rd;
@@ -204,17 +217,17 @@ namespace vix::middleware::parsers
     return out;
   }
 
+  /** @brief Unique base name: "<epoch_ms>_<rand8>". */
   inline std::string unique_basename()
   {
     using namespace std::chrono;
     const auto now = time_point_cast<milliseconds>(system_clock::now()).time_since_epoch().count();
-    // "1700000000000_ab12cd34"
     return std::to_string(now) + "_" + random_hex_8();
   }
 
+  /** @brief Write to tmp file then rename. */
   inline bool write_file_atomic(const std::filesystem::path &final_path, std::string_view data)
   {
-    // write to tmp then rename
     auto tmp = final_path;
     tmp += ".tmp";
 
@@ -233,7 +246,6 @@ namespace vix::middleware::parsers
     std::filesystem::rename(tmp, final_path, ec);
     if (ec)
     {
-      // try cleanup tmp
       std::error_code ec2;
       std::filesystem::remove(tmp, ec2);
       return false;
@@ -241,6 +253,7 @@ namespace vix::middleware::parsers
     return true;
   }
 
+  /** @brief Create a collision-resistant output path under upload_dir. */
   inline std::filesystem::path make_unique_path(
       const MultipartSaveOptions &opt,
       std::string_view original_filename)
@@ -255,13 +268,11 @@ namespace vix::middleware::parsers
     else
       base = safe_token(opt.default_basename) + "_" + unique_basename();
 
-    // avoid empty, avoid huge
     if (base.size() > 120)
       base.resize(120);
 
     std::filesystem::path dir(opt.upload_dir);
 
-    // collision-safe: loop if exists
     for (int i = 0; i < 64; ++i)
     {
       std::filesystem::path p = dir / (base + ext);
@@ -271,13 +282,12 @@ namespace vix::middleware::parsers
       base = safe_token(opt.default_basename) + "_" + unique_basename();
     }
 
-    // last resort
     return dir / (safe_token(opt.default_basename) + "_" + unique_basename() + ext);
   }
 
+  /** @brief Parse Content-Length as size_t (0 on invalid/overflow). */
   inline std::size_t parse_content_length(std::string_view s)
   {
-    // returns 0 on invalid/empty
     std::size_t n = 0;
     bool any = false;
     for (char c : s)
@@ -287,7 +297,7 @@ namespace vix::middleware::parsers
         any = true;
         std::size_t digit = std::size_t(c - '0');
         if (n > (std::numeric_limits<std::size_t>::max() - digit) / 10)
-          return 0; // overflow => treat as invalid
+          return 0;
         n = n * 10 + digit;
       }
       else if (c == ' ' || c == '\t')
@@ -302,7 +312,9 @@ namespace vix::middleware::parsers
     return any ? n : 0;
   }
 
-  // Middleware
+  /**
+   * @brief Parse multipart/form-data and save files to disk.
+   */
   inline MiddlewareFn multipart_save(MultipartSaveOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -505,4 +517,4 @@ namespace vix::middleware::parsers
 
 } // namespace vix::middleware::parsers
 
-#endif
+#endif // VIX_MULTIPART_SAVE_HPP

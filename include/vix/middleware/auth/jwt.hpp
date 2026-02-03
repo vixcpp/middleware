@@ -34,6 +34,9 @@
 
 namespace vix::middleware::auth
 {
+  /**
+   * @brief Parsed JWT claims stored in request state.
+   */
   struct JwtClaims
   {
     nlohmann::json payload;
@@ -41,6 +44,9 @@ namespace vix::middleware::auth
     std::vector<std::string> roles;
   };
 
+  /**
+   * @brief JWT middleware options (HS256).
+   */
   struct JwtOptions
   {
     std::string secret;
@@ -53,6 +59,7 @@ namespace vix::middleware::auth
     std::string audience{};
   };
 
+  /** @brief Lowercase ASCII copy. */
   inline std::string lower_copy(std::string s)
   {
     for (char &c : s)
@@ -60,6 +67,7 @@ namespace vix::middleware::auth
     return s;
   }
 
+  /** @brief Case-insensitive prefix test (ASCII). */
   inline bool starts_with_ci(std::string_view s, std::string_view prefix_lower)
   {
     if (s.size() < prefix_lower.size())
@@ -73,6 +81,7 @@ namespace vix::middleware::auth
     return true;
   }
 
+  /** @brief Trim ASCII whitespace. */
   inline std::string trim_copy(std::string s)
   {
     auto is_ws = [](unsigned char ch)
@@ -85,6 +94,11 @@ namespace vix::middleware::auth
     return s;
   }
 
+  /**
+   * @brief Base64url decode into a string.
+   *
+   * @return Decoded bytes as string, or nullopt on failure.
+   */
   inline std::optional<std::string> b64url_decode(std::string_view in)
   {
     std::string b64;
@@ -124,6 +138,9 @@ namespace vix::middleware::auth
     return out;
   }
 
+  /**
+   * @brief Base64url encode a byte buffer.
+   */
   inline std::string b64url_encode(const unsigned char *data, size_t len)
   {
     std::string b64;
@@ -149,6 +166,9 @@ namespace vix::middleware::auth
     return b64;
   }
 
+  /**
+   * @brief Compute HMAC-SHA256(secret, msg) and return base64url signature.
+   */
   inline std::optional<std::string> hmac_sha256_b64url(std::string_view msg, std::string_view secret)
   {
     unsigned int out_len = 0;
@@ -168,14 +188,21 @@ namespace vix::middleware::auth
     return b64url_encode(out, static_cast<size_t>(out_len));
   }
 
-  inline std::optional<std::string> extract_token_default(const vix::middleware::Request &req, const JwtOptions &opt)
+  /**
+   * @brief Default token extractor (Authorization: Bearer ... + optional query param).
+   */
+  inline std::optional<std::string> extract_token_default(
+      const vix::middleware::Request &req,
+      const JwtOptions &opt)
   {
     std::string h = req.header(opt.auth_header);
     h = trim_copy(std::move(h));
 
     if (!h.empty())
     {
-      const std::string prefix_lower = opt.bearer_prefix.empty() ? std::string("bearer ") : lower_copy(opt.bearer_prefix);
+      const std::string prefix_lower =
+          opt.bearer_prefix.empty() ? std::string("bearer ") : lower_copy(opt.bearer_prefix);
+
       if (starts_with_ci(h, prefix_lower))
       {
         std::string token = h.substr(prefix_lower.size());
@@ -195,6 +222,7 @@ namespace vix::middleware::auth
     return std::nullopt;
   }
 
+  /** @brief Read a string claim (or nullopt if missing/non-string). */
   inline std::optional<std::string> json_string_claim(const nlohmann::json &j, const char *key)
   {
     if (!j.contains(key))
@@ -205,6 +233,7 @@ namespace vix::middleware::auth
     return std::nullopt;
   }
 
+  /** @brief Check a claim equality if expected is non-empty. */
   inline bool claim_matches(const nlohmann::json &payload, const char *key, const std::string &expected)
   {
     if (expected.empty())
@@ -213,6 +242,7 @@ namespace vix::middleware::auth
     return v && *v == expected;
   }
 
+  /** @brief Extract roles from "roles" claim (string or array of strings). */
   inline std::vector<std::string> extract_roles(const nlohmann::json &payload)
   {
     std::vector<std::string> roles;
@@ -237,6 +267,7 @@ namespace vix::middleware::auth
     return roles;
   }
 
+  /** @brief True if payload contains "exp" and it is in the past (seconds since epoch). */
   inline bool is_expired(const nlohmann::json &payload)
   {
     if (!payload.contains("exp"))
@@ -255,6 +286,12 @@ namespace vix::middleware::auth
     return now_s >= exp_s;
   }
 
+  /**
+   * @brief JWT middleware (HS256).
+   *
+   * Validates signature and selected claims (iss/aud/exp) then stores JwtClaims
+   * in the request state.
+   */
   inline MiddlewareFn jwt(JwtOptions opt)
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -419,4 +456,4 @@ namespace vix::middleware::auth
 
 } // namespace vix::middleware::auth
 
-#endif
+#endif // VIX_JWT_HPP

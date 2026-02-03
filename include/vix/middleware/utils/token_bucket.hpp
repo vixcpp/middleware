@@ -22,11 +22,32 @@
 
 namespace vix::middleware::utils
 {
+  /**
+   * @brief Thread-safe token bucket rate limiter primitive.
+   *
+   * TokenBucket implements the classic token bucket algorithm:
+   * - a bucket has a maximum capacity (tokens)
+   * - tokens refill over time at a configured rate (tokens per second)
+   * - a request consumes N tokens if available
+   *
+   * This is typically used by rate-limiting middleware.
+   */
   class TokenBucket final
   {
   public:
+    /**
+     * @brief Construct an empty bucket (capacity=0, refill=0).
+     *
+     * This bucket will never allow consumption unless n <= 0.
+     */
     TokenBucket() = default;
 
+    /**
+     * @brief Construct a token bucket.
+     *
+     * @param capacity Maximum token capacity (clamped to >= 0).
+     * @param refill_per_sec Refill rate in tokens per second (clamped to >= 0).
+     */
     TokenBucket(double capacity, double refill_per_sec)
         : capacity_(std::max(0.0, capacity)),
           refill_per_sec_(std::max(0.0, refill_per_sec)),
@@ -35,6 +56,14 @@ namespace vix::middleware::utils
     {
     }
 
+    /**
+     * @brief Try to consume @p n tokens from the bucket.
+     *
+     * The bucket is refilled based on elapsed time before attempting consumption.
+     *
+     * @param n Number of tokens to consume. If n <= 0, this returns true.
+     * @return true if enough tokens were available and consumed.
+     */
     bool try_consume(double n)
     {
       if (n <= 0.0)
@@ -51,12 +80,29 @@ namespace vix::middleware::utils
       return false;
     }
 
+    /**
+     * @brief Get the current number of tokens.
+     *
+     * Note: this value may be slightly stale with respect to wall time because
+     * refill is applied only when methods are called.
+     *
+     * @return Current token count.
+     */
     double tokens() const
     {
       std::lock_guard<std::mutex> lock(mu_);
       return tokens_;
     }
 
+    /**
+     * @brief Estimate how long until at least @p need tokens are available.
+     *
+     * The bucket is refilled before computing the estimate.
+     *
+     * @param need Required tokens (default: 1.0).
+     * @return Milliseconds to wait (0 if already available). Minimum returned is 1
+     *         when tokens are missing, to avoid returning 0 in edge cases.
+     */
     std::int64_t retry_after_ms(double need = 1.0)
     {
       std::lock_guard<std::mutex> lock(mu_);
@@ -75,6 +121,11 @@ namespace vix::middleware::utils
     }
 
   private:
+    /**
+     * @brief Refill tokens based on elapsed steady time.
+     *
+     * Caller must hold mu_.
+     */
     void refill_locked_()
     {
       const auto now = Clock::now_ms_steady();
@@ -100,4 +151,4 @@ namespace vix::middleware::utils
 
 } // namespace vix::middleware::utils
 
-#endif
+#endif // VIX_TOKEN_BUCKET_HPP

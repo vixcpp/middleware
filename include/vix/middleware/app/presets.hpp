@@ -43,11 +43,19 @@
 
 namespace vix::middleware::app
 {
+  /**
+   * @brief Convert an initializer list of strings to a std::vector.
+   */
   inline std::vector<std::string> _to_vec(std::initializer_list<std::string> xs)
   {
     return {xs.begin(), xs.end()};
   }
 
+  /**
+   * @brief Body size limit preset (dev-friendly defaults).
+   *
+   * Adapts the Context-based middleware to App middleware.
+   */
   inline vix::App::Middleware body_limit_dev(
       std::size_t max_bytes = 16,
       bool apply_to_get = false,
@@ -63,6 +71,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::basics::body_limit(std::move(opt)));
   }
 
+  /**
+   * @brief Body limit preset that applies only to write methods (POST/PUT/PATCH).
+   */
   inline vix::App::Middleware body_limit_write_dev(std::size_t max_bytes)
   {
     return body_limit_dev(
@@ -74,6 +85,9 @@ namespace vix::middleware::app
         });
   }
 
+  /**
+   * @brief IP filter preset with explicit allow and deny lists.
+   */
   inline vix::App::Middleware ip_filter_allow_deny_dev(
       std::string header_name,
       std::initializer_list<std::string> allow,
@@ -89,6 +103,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
   }
 
+  /**
+   * @brief IP filter preset with a deny list.
+   */
   inline vix::App::Middleware ip_filter_dev(
       std::string header_name = "x-vix-ip",
       std::initializer_list<std::string> deny = {"1.2.3.4"},
@@ -102,6 +119,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
   }
 
+  /**
+   * @brief CORS preset for demo setups that also expects an IP header.
+   */
   inline vix::App::Middleware cors_ip_demo(
       std::initializer_list<std::string> origins = {
           "http://localhost:5173",
@@ -127,6 +147,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::cors(std::move(opt)));
   }
 
+  /**
+   * @brief IP allowlist preset.
+   */
   inline vix::App::Middleware ip_allowlist_dev(
       std::string header_name,
       std::initializer_list<std::string> allow,
@@ -140,6 +163,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::ip_filter(std::move(opt)));
   }
 
+  /**
+   * @brief Custom rate-limit preset.
+   */
   inline vix::App::Middleware rate_limit_custom_dev(
       double capacity,
       double refill_per_sec,
@@ -154,8 +180,10 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::rate_limit(std::move(opt)));
   }
 
-  inline vix::App::Middleware security_headers_dev(
-      bool hsts = false)
+  /**
+   * @brief Security headers preset.
+   */
+  inline vix::App::Middleware security_headers_dev(bool hsts = false)
   {
     vix::middleware::security::SecurityHeadersOptions opt{};
     opt.x_content_type_options = true;
@@ -167,6 +195,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::headers(std::move(opt)));
   }
 
+  /**
+   * @brief CSRF protection preset using cookie + header token.
+   */
   inline vix::App::Middleware csrf_dev(
       std::string cookie_name = "csrf_token",
       std::string header_name = "x-csrf-token",
@@ -180,6 +211,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::csrf(std::move(opt)));
   }
 
+  /**
+   * @brief Strict CSRF preset that also protects GET requests.
+   */
   inline vix::App::Middleware csrf_strict_dev(
       std::string cookie_name = "csrf_token",
       std::string header_name = "x-csrf-token")
@@ -187,11 +221,21 @@ namespace vix::middleware::app
     return csrf_dev(std::move(cookie_name), std::move(header_name), true);
   }
 
+  /**
+   * @brief Install a middleware on a route prefix.
+   *
+   * @param app Target app.
+   * @param prefix Route prefix.
+   * @param mw Middleware to install.
+   */
   inline void use_on_prefix(vix::App &app, std::string prefix, vix::App::Middleware mw)
   {
     install(app, std::move(prefix), std::move(mw));
   }
 
+  /**
+   * @brief CORS preset for local development.
+   */
   inline vix::App::Middleware cors_dev(
       std::initializer_list<std::string> origins = {
           "http://localhost:5173",
@@ -215,6 +259,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::cors(std::move(opt)));
   }
 
+  /**
+   * @brief Rate-limit preset defined by capacity and time window.
+   */
   inline vix::App::Middleware rate_limit_dev(
       std::size_t capacity = 60,
       std::chrono::milliseconds window = std::chrono::minutes(1))
@@ -234,6 +281,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::security::rate_limit(std::move(opt)));
   }
 
+  /**
+   * @brief JSON parser preset.
+   */
   inline vix::App::Middleware json_dev(
       std::size_t max_bytes = 256,
       bool require_content_type = true,
@@ -248,11 +298,17 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::parsers::json(std::move(opt)));
   }
 
+  /**
+   * @brief Strict JSON parser preset (no empty body).
+   */
   inline vix::App::Middleware json_strict_dev(std::size_t max_bytes = 256)
   {
     return json_dev(max_bytes, true, false);
   }
 
+  /**
+   * @brief Form parser preset.
+   */
   inline vix::App::Middleware form_dev(
       std::size_t max_bytes = 128,
       bool require_content_type = true)
@@ -265,6 +321,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::parsers::form(std::move(opt)));
   }
 
+  /**
+   * @brief Multipart parser preset.
+   */
   inline vix::App::Middleware multipart_dev(
       std::size_t max_bytes = 256,
       bool require_boundary = true)
@@ -277,6 +336,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::parsers::multipart(std::move(opt)));
   }
 
+  /**
+   * @brief Multipart parser preset that saves uploaded files.
+   */
   inline vix::App::Middleware multipart_save_dev(
       std::string upload_dir = "uploads",
       std::size_t max_bytes = 5 * 1024 * 1024)
@@ -290,8 +352,15 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::parsers::multipart_save(std::move(opt)));
   }
 
-  inline vix::json::kvs multipart_json(const vix::middleware::parsers::MultipartForm &form,
-                                       std::string upload_dir = "uploads")
+  /**
+   * @brief Build a JSON response from a parsed multipart form.
+   *
+   * @param form Parsed multipart form.
+   * @param upload_dir Upload directory used by the saver.
+   */
+  inline vix::json::kvs multipart_json(
+      const vix::middleware::parsers::MultipartForm &form,
+      std::string upload_dir = "uploads")
   {
     std::vector<vix::json::token> files_vec;
     files_vec.reserve(form.files.size());
@@ -326,6 +395,9 @@ namespace vix::middleware::app
          "fields", vix::json::obj(std::move(fields_flat))});
   }
 
+  /**
+   * @brief JWT auth middleware preset.
+   */
   inline vix::App::Middleware jwt_auth(std::string secret)
   {
     vix::middleware::auth::JwtOptions opt{};
@@ -333,11 +405,17 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
   }
 
+  /**
+   * @brief JWT auth middleware preset with explicit options.
+   */
   inline vix::App::Middleware jwt_auth(vix::middleware::auth::JwtOptions opt)
   {
     return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
   }
 
+  /**
+   * @brief JWT preset with optional expiration verification.
+   */
   inline vix::App::Middleware jwt_dev(
       std::string secret,
       bool verify_exp = false)
@@ -349,6 +427,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::auth::jwt(std::move(opt)));
   }
 
+  /**
+   * @brief Session middleware preset using signed cookies.
+   */
   inline vix::App::Middleware session_dev(
       std::string secret,
       std::string cookie_name = "sid",
@@ -372,6 +453,9 @@ namespace vix::middleware::app
     return adapt_ctx(vix::middleware::auth::session(std::move(opt)));
   }
 
+  /**
+   * @brief Strict session preset (Secure + SameSite=None for cross-site cookies).
+   */
   inline vix::App::Middleware session_strict(
       std::string secret,
       std::string cookie_name = "sid",
@@ -382,16 +466,18 @@ namespace vix::middleware::app
     opt.cookie_name = std::move(cookie_name);
     opt.cookie_path = "/";
 
-    // strict defaults
     opt.secure = true;
     opt.http_only = true;
-    opt.same_site = "None"; // needed for cross-site cookies, requires Secure=true
+    opt.same_site = "None";
     opt.ttl = ttl;
     opt.auto_create = true;
 
     return adapt_ctx(vix::middleware::auth::session(std::move(opt)));
   }
 
+  /**
+   * @brief Set a cookie after the downstream middleware/handler runs.
+   */
   inline vix::App::Middleware set_cookie_dev(
       std::string name,
       std::string value,
@@ -425,13 +511,17 @@ namespace vix::middleware::app
         });
   }
 
-  inline vix::App::Middleware api_key_auth(
-      vix::middleware::auth::ApiKeyOptions opt)
+  /**
+   * @brief API key auth middleware preset.
+   */
+  inline vix::App::Middleware api_key_auth(vix::middleware::auth::ApiKeyOptions opt)
   {
-    return adapt_ctx(
-        vix::middleware::auth::api_key(std::move(opt)));
+    return adapt_ctx(vix::middleware::auth::api_key(std::move(opt)));
   }
 
+  /**
+   * @brief API key preset using x-api-key header (and api_key query param).
+   */
   inline vix::App::Middleware api_key_dev(std::string key)
   {
     vix::middleware::auth::ApiKeyOptions opt{};
@@ -443,6 +533,9 @@ namespace vix::middleware::app
     return api_key_auth(std::move(opt));
   }
 
+  /**
+   * @brief RBAC preset that requires the "admin" role.
+   */
   inline vix::App::Middleware rbac_admin()
   {
     return chain(

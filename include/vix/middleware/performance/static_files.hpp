@@ -1,4 +1,3 @@
-
 /**
  *
  *  @file static_files.hpp
@@ -25,25 +24,75 @@
 
 namespace vix::middleware::performance
 {
+  /**
+   * @brief Configuration options for static_files() middleware.
+   */
   struct StaticFilesOptions
   {
+    /**
+     * @brief URL mount point (prefix) for static serving.
+     *
+     * Example: "/" serves everything, "/assets" serves only under /assets.
+     */
     std::string mount{"/"};
+
+    /**
+     * @brief Default file served when a directory or empty path is requested.
+     */
     std::string index_file{"index.html"};
+
+    /**
+     * @brief If true, set Cache-Control on successful static responses.
+     */
     bool add_cache_control{true};
+
+    /**
+     * @brief Cache-Control value set when add_cache_control is true.
+     */
     std::string cache_control{"public, max-age=3600"};
+
+    /**
+     * @brief If true, call next() when a file is not found.
+     *
+     * If false, missing files will produce a 404 response directly.
+     */
     bool fallthrough{true};
   };
 
+  /**
+   * @brief Check whether @p s starts with prefix @p p.
+   *
+   * @param s Input string.
+   * @param p Prefix.
+   * @return true if @p s starts with @p p.
+   */
   inline bool starts_with(std::string_view s, std::string_view p)
   {
     return s.size() >= p.size() && s.substr(0, p.size()) == p;
   }
 
+  /**
+   * @brief Detect naive directory traversal attempts.
+   *
+   * This checks for ".." in the relative path. It is a simple guard and not
+   * a full canonicalization check.
+   *
+   * @param p Relative path.
+   * @return true if suspicious pattern is found.
+   */
   inline bool contains_dotdot(std::string_view p)
   {
     return p.find("..") != std::string_view::npos;
   }
 
+  /**
+   * @brief Map a file extension to a MIME type.
+   *
+   * Defaults to "application/octet-stream".
+   *
+   * @param ext File extension including dot (e.g. ".html").
+   * @return MIME type string.
+   */
   inline std::string ext_to_mime(std::string_view ext)
   {
     static const std::unordered_map<std::string, std::string> m{
@@ -66,6 +115,15 @@ namespace vix::middleware::performance
     return it == m.end() ? "application/octet-stream" : it->second;
   }
 
+  /**
+   * @brief Read a file into a string.
+   *
+   * The file is read in binary mode. The output string is resized to the file size.
+   *
+   * @param p File path.
+   * @param out Output string.
+   * @return true on success.
+   */
   inline bool read_file_to_string(const std::filesystem::path &p, std::string &out)
   {
     std::ifstream f(p, std::ios::binary);
@@ -85,6 +143,35 @@ namespace vix::middleware::performance
     return true;
   }
 
+  /**
+   * @brief Static file serving middleware.
+   *
+   * Serves files from a filesystem root when the request path matches the mount prefix.
+   *
+   * Behavior:
+   * - Only handles GET and HEAD requests.
+   * - If request path does not start with mount, calls next().
+   * - Builds a relative path from the request path:
+   *   - removes mount prefix
+   *   - strips a leading '/'
+   *   - uses index_file when empty
+   * - Guards against naive traversal using ".." detection.
+   * - Resolves the filesystem path:
+   *   - full = root / rel
+   *   - if directory: append index_file
+   * - If missing:
+   *   - if fallthrough: calls next()
+   *   - else: returns 404
+   * - On success:
+   *   - sets Content-Type based on file extension
+   *   - optionally sets Cache-Control
+   *   - for HEAD: returns headers only
+   *   - for GET: sends file contents as the body
+   *
+   * @param root Root directory on disk.
+   * @param opt Static file options.
+   * @return A middleware function (MiddlewareFn).
+   */
   inline MiddlewareFn static_files(std::filesystem::path root, StaticFilesOptions opt = {})
   {
     return [root = std::move(root), opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -159,4 +246,4 @@ namespace vix::middleware::performance
 
 } // namespace vix::middleware::performance
 
-#endif
+#endif // VIX_STATIC_FILES_HPP

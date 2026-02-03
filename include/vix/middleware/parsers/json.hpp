@@ -25,11 +25,17 @@
 
 namespace vix::middleware::parsers
 {
+  /**
+   * @brief Parsed JSON body stored in request state.
+   */
   struct JsonBody
   {
     nlohmann::json value{};
   };
 
+  /**
+   * @brief JSON parser options.
+   */
   struct JsonParserOptions
   {
     bool require_content_type{true};
@@ -38,6 +44,9 @@ namespace vix::middleware::parsers
     bool store_in_state{true}; // store JsonBody in ctx.state
   };
 
+  /**
+   * @brief Parse request body as JSON and optionally store it in state.
+   */
   inline MiddlewareFn json(JsonParserOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -57,7 +66,6 @@ namespace vix::middleware::parsers
           return;
         }
 
-        // allow empty => store {} optionally
         if (opt.store_in_state)
         {
           JsonBody jb;
@@ -125,4 +133,4 @@ namespace vix::middleware::parsers
 
 } // namespace vix::middleware::parsers
 
-#endif
+#endif // VIX_MIDDLEWARE_JSON_HPP

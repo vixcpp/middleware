@@ -23,7 +23,11 @@
 
 namespace vix::middleware::app
 {
-  // Adapt legacy HttpMiddleware(Request&, Response&, Next)
+  /**
+   * @brief Adapt a legacy HttpMiddleware to an App middleware.
+   *
+   * Converts (Request&, Response&, Next) into App::Middleware.
+   */
   inline vix::App::Middleware adapt(vix::middleware::HttpMiddleware inner)
   {
     return [inner = std::move(inner)](
@@ -36,7 +40,11 @@ namespace vix::middleware::app
     };
   }
 
-  // Adapt Context-based middleware (MiddlewareFn(Context&, Next))
+  /**
+   * @brief Adapt a Context-based middleware to an App middleware.
+   *
+   * Wraps (Context&, Next) and creates a Context instance per request.
+   */
   inline vix::App::Middleware adapt_ctx(vix::middleware::MiddlewareFn inner)
   {
     return [inner = std::move(inner),
@@ -51,6 +59,13 @@ namespace vix::middleware::app
     };
   }
 
+  /**
+   * @brief Conditionally apply a middleware based on a request predicate.
+   *
+   * @tparam Pred Callable predicate taking (const Request&) and returning bool.
+   * @param pred Predicate to decide whether to run the middleware.
+   * @param mw Middleware to run when predicate matches.
+   */
   template <class Pred>
   inline vix::App::Middleware when(Pred pred, vix::App::Middleware mw)
   {
@@ -69,9 +84,10 @@ namespace vix::middleware::app
     };
   }
 
-  inline vix::App::Middleware protect_path(
-      std::string path,
-      vix::App::Middleware mw)
+  /**
+   * @brief Apply a middleware only for an exact path.
+   */
+  inline vix::App::Middleware protect_path(std::string path, vix::App::Middleware mw)
   {
     return when(
         [path = std::move(path)](const vix::vhttp::Request &req)
@@ -81,9 +97,10 @@ namespace vix::middleware::app
         std::move(mw));
   }
 
-  inline vix::App::Middleware protect_prefix_mw(
-      std::string prefix,
-      vix::App::Middleware mw)
+  /**
+   * @brief Apply a middleware only for a path prefix.
+   */
+  inline vix::App::Middleware protect_prefix_mw(std::string prefix, vix::App::Middleware mw)
   {
     return when(
         [prefix = std::move(prefix)](const vix::vhttp::Request &req)
@@ -93,31 +110,38 @@ namespace vix::middleware::app
         std::move(mw));
   }
 
-  inline void protect(
-      vix::App &app,
-      std::string exact_path,
-      vix::App::Middleware mw)
+  /**
+   * @brief Install a middleware that applies only to an exact path.
+   */
+  inline void protect(vix::App &app, std::string exact_path, vix::App::Middleware mw)
   {
     app.use(protect_path(std::move(exact_path), std::move(mw)));
   }
 
-  inline void protect_prefix(
-      vix::App &app,
-      std::string prefix,
-      vix::App::Middleware mw)
+  /**
+   * @brief Install a middleware that applies only to a path prefix.
+   */
+  inline void protect_prefix(vix::App &app, std::string prefix, vix::App::Middleware mw)
   {
     app.use(protect_prefix_mw(std::move(prefix), std::move(mw)));
   }
 
+  /**
+   * @brief Install a middleware on a route prefix (App::use(prefix, mw)).
+   */
   inline void install(vix::App &app, std::string prefix, vix::App::Middleware mw)
   {
     app.use(std::move(prefix), std::move(mw));
   }
 
+  /**
+   * @brief Install a middleware on an exact path (alias of protect()).
+   */
   inline void install_exact(vix::App &app, std::string exact_path, vix::App::Middleware mw)
   {
     protect(app, std::move(exact_path), std::move(mw));
   }
-}
 
-#endif
+} // namespace vix::middleware::app
+
+#endif // VIX_ADAPTER_HPP

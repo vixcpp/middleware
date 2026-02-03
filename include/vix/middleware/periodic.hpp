@@ -25,11 +25,25 @@
 
 namespace vix::middleware
 {
+  /**
+   * @brief Periodic background task executed via an executor.
+   *
+   * Runs a job at a fixed interval using a dedicated timing thread and
+   * dispatches executions to the provided executor.
+   */
   class PeriodicTask final
   {
   public:
     using Clock = std::chrono::steady_clock;
 
+    /**
+     * @brief Construct a periodic task.
+     *
+     * @param ex Target executor used to run the job.
+     * @param interval Execution interval.
+     * @param job Task function to execute.
+     * @param opt Executor task options.
+     */
     PeriodicTask(
         vix::executor::IExecutor &ex,
         std::chrono::milliseconds interval,
@@ -42,6 +56,7 @@ namespace vix::middleware
     {
     }
 
+    /** @brief Stop the task if running. */
     ~PeriodicTask()
     {
       stop();
@@ -52,6 +67,9 @@ namespace vix::middleware
     PeriodicTask(PeriodicTask &&) = delete;
     PeriodicTask &operator=(PeriodicTask &&) = delete;
 
+    /**
+     * @brief Start the periodic execution.
+     */
     void start()
     {
       if (running_.exchange(true))
@@ -62,6 +80,9 @@ namespace vix::middleware
                             { run_loop_(); });
     }
 
+    /**
+     * @brief Stop the periodic execution.
+     */
     void stop()
     {
       if (!running_.exchange(false))
@@ -72,6 +93,9 @@ namespace vix::middleware
         thread_.join();
     }
 
+    /**
+     * @brief Check whether the task is currently running.
+     */
     bool is_running() const noexcept
     {
       return running_.load();
@@ -109,4 +133,4 @@ namespace vix::middleware
 
 } // namespace vix::middleware
 
-#endif
+#endif // VIX_PERIODIC_HPP

@@ -24,6 +24,11 @@
 
 namespace vix::middleware::basics
 {
+  /**
+   * @brief Minimal logger interface used by the logger middleware.
+   *
+   * You can provide an implementation via ctx.services().set<ILogger>(...).
+   */
   struct ILogger
   {
     virtual ~ILogger() = default;
@@ -32,24 +37,33 @@ namespace vix::middleware::basics
     virtual void error(std::string_view msg) = 0;
   };
 
+  /**
+   * @brief Output format for request logs.
+   */
   enum class LogFormat
   {
     Text,
     Json
   };
 
+  /**
+   * @brief Options for the logger middleware.
+   */
   struct LoggerOptions final
   {
     LogFormat format{LogFormat::Text};
     bool log_request_id{true};
     bool log_timing{true};
 
-    // If true, status >= 400 -> warn/error (>=500)
+    // If true, status >= 400 => warn/error (>=500)
     bool level_from_status{true};
-    // If true, add simple user-agent and remote headers if present
+
+    // If true, include common client metadata headers if present
     bool include_user_agent{false};
     bool include_forwarded_for{false};
-    // If timing middleware not installed, duration_ms = -1
+
+    // If true, and timing is missing, keep duration_ms = -1
+    // If false and timing is missing, duration_ms may fallback to 0
     bool require_timing{false};
   };
 
@@ -57,6 +71,7 @@ namespace vix::middleware::basics
   {
     std::string out;
     out.reserve(s.size() + 8);
+
     for (char c : s)
     {
       switch (c)
@@ -84,6 +99,7 @@ namespace vix::middleware::basics
         break;
       }
     }
+
     return out;
   }
 
@@ -166,9 +182,7 @@ namespace vix::middleware::basics
     json += "\"status\":" + std::to_string(status_code);
 
     if (!opt.require_timing || duration_ms >= 0)
-    {
       json += ",\"duration_ms\":" + std::to_string(duration_ms);
-    }
 
     if (opt.log_request_id)
     {
@@ -179,33 +193,32 @@ namespace vix::middleware::basics
         rid = ctx.req().header("x-request-id");
 
       if (!rid.empty())
-      {
         json += ",\"request_id\":\"" + json_escape(rid) + "\"";
-      }
     }
 
     if (opt.include_user_agent)
     {
       const std::string ua = ctx.req().header("user-agent");
       if (!ua.empty())
-      {
         json += ",\"user_agent\":\"" + json_escape(ua) + "\"";
-      }
     }
 
     if (opt.include_forwarded_for)
     {
       const std::string fwd = ctx.req().header("x-forwarded-for");
       if (!fwd.empty())
-      {
         json += ",\"x_forwarded_for\":\"" + json_escape(fwd) + "\"";
-      }
     }
 
     json += "}";
     return json;
   }
 
+  /**
+   * @brief Middleware that logs a summary line per request.
+   *
+   * Requires an ILogger to be registered in ctx.services().
+   */
   inline MiddlewareFn logger(LoggerOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next)
@@ -252,4 +265,4 @@ namespace vix::middleware::basics
 
 } // namespace vix::middleware::basics
 
-#endif
+#endif // VIX_MIDDLEWARE_LOGGER_HPP

@@ -36,18 +36,68 @@
 
 namespace vix::middleware::security
 {
+  /**
+   * @brief Configuration options for cors() middleware.
+   */
   struct CorsOptions
   {
+    /**
+     * @brief Allowed origins list (exact matches or "*" when allow_any_origin is true).
+     *
+     * If allow_any_origin is true and allowed_origins is empty, any origin is accepted.
+     */
     std::vector<std::string> allowed_origins{};
+
+    /**
+     * @brief If true, allow wildcard origin behavior depending on configuration.
+     */
     bool allow_any_origin{true};
+
+    /**
+     * @brief If true, set Access-Control-Allow-Credentials: true.
+     *
+     * Note: when credentials are allowed, returning "*" for Allow-Origin is not valid.
+     * This middleware will return the request's Origin instead (when allowed).
+     */
     bool allow_credentials{false};
+
+    /**
+     * @brief Allowed methods for preflight responses.
+     */
     std::vector<std::string> allow_methods{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"};
+
+    /**
+     * @brief Allowed headers for preflight responses.
+     *
+     * If empty, and Access-Control-Request-Headers is present, the request value is echoed.
+     */
     std::vector<std::string> allow_headers{"Content-Type", "Authorization"};
+
+    /**
+     * @brief Response headers exposed to the browser.
+     */
     std::vector<std::string> expose_headers{};
+
+    /**
+     * @brief Preflight cache duration.
+     */
     int max_age_seconds{600};
+
+    /**
+     * @brief If true, append "Vary: Origin".
+     *
+     * This is important when Allow-Origin is not "*".
+     */
     bool vary_origin{true};
   };
 
+  /**
+   * @brief ASCII case-insensitive string equality.
+   *
+   * @param a First string.
+   * @param b Second string.
+   * @return true if equal ignoring ASCII case.
+   */
   inline bool iequals(std::string_view a, std::string_view b)
   {
     if (a.size() != b.size())
@@ -69,6 +119,12 @@ namespace vix::middleware::security
     return true;
   }
 
+  /**
+   * @brief Join a list of strings as a comma-separated value (CSV).
+   *
+   * @param a Input list.
+   * @return CSV string.
+   */
   inline std::string join_csv(const std::vector<std::string> &a)
   {
     std::string out;
@@ -81,6 +137,19 @@ namespace vix::middleware::security
     return out;
   }
 
+  /**
+   * @brief Check whether a given Origin header value is allowed.
+   *
+   * Rules:
+   * - If origin is empty, it is not allowed.
+   * - If allow_any_origin is true and allowed_origins is empty: allow any non-empty origin.
+   * - Otherwise, allow exact matches in allowed_origins.
+   * - "*" in allowed_origins is accepted only when allow_any_origin is true.
+   *
+   * @param origin Origin value.
+   * @param opt CORS options.
+   * @return true if allowed.
+   */
   inline bool origin_allowed(std::string_view origin, const CorsOptions &opt)
   {
     if (origin.empty())
@@ -99,6 +168,15 @@ namespace vix::middleware::security
     return false;
   }
 
+  /**
+   * @brief Read a request header in a tolerant way (exact, lowercase, Title-Case).
+   *
+   * This helps when a request wrapper stores headers with specific casing.
+   *
+   * @param req Request.
+   * @param name Header name to read.
+   * @return Header value or empty string.
+   */
   inline std::string header_any_case(const vix::middleware::Request &req, std::string_view name)
   {
     std::string v = req.header(std::string(name));
@@ -129,7 +207,24 @@ namespace vix::middleware::security
     return req.header(title);
   }
 
-  // Return the exact callable type (no alias dependency)
+  /**
+   * @brief CORS middleware.
+   *
+   * Handles:
+   * - Preflight requests: OPTIONS + Access-Control-Request-Method
+   * - Simple requests: apply response headers after next() if origin is present and allowed
+   *
+   * Preflight behavior:
+   * - If origin not allowed: returns a normalized 403 error.
+   * - Otherwise: sets allow-origin, allow-methods, allow-headers, max-age, etc. and returns 204.
+   *
+   * Simple request behavior:
+   * - Calls next() first.
+   * - If origin present and allowed: applies allow-origin, credentials, expose-headers, and vary.
+   *
+   * @param opt CORS options.
+   * @return A middleware function (MiddlewareFn).
+   */
   inline vix::middleware::MiddlewareFn cors(CorsOptions opt = CorsOptions())
   {
     return [opt = std::move(opt)](vix::middleware::Context &ctx,

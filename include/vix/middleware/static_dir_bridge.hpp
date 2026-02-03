@@ -19,6 +19,12 @@
 
 namespace vix::middleware
 {
+  /**
+   * @brief Register the static directory handler bridge for vix::App.
+   *
+   * Installs a default App static handler that mounts the StaticFiles middleware
+   * on the provided mount path.
+   */
   inline void register_static_dir()
   {
     static vix::mw::Services g_services{};
@@ -40,7 +46,6 @@ namespace vix::middleware
           opt.fallthrough = fallthrough;
 
           auto mw = vix::middleware::performance::static_files(root, std::move(opt));
-
           auto httpmw = vix::middleware::to_http_middleware(std::move(mw), g_services);
 
           vix::App::Middleware appmw =
@@ -57,6 +62,7 @@ namespace vix::middleware
           return true;
         });
   }
-}
 
-#endif
+} // namespace vix::middleware
+
+#endif // VIX_MIDDLEWARE_STATIC_DIR_BRIDGE_HPP

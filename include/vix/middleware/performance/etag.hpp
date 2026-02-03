@@ -1,4 +1,3 @@
-
 /**
  *
  *  @file etag.hpp
@@ -17,21 +16,50 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+
 #include <boost/beast/http.hpp>
+
 #include <vix/middleware/middleware.hpp>
 
 namespace vix::middleware::performance
 {
   namespace http = boost::beast::http;
 
+  /**
+   * @brief Configuration options for etag() middleware.
+   */
   struct EtagOptions
   {
+    /**
+     * @brief If true, emit a weak ETag (prefixed by "W/").
+     */
     bool weak{true};
+
+    /**
+     * @brief If true, add Cache-Control header when it is missing.
+     */
     bool add_cache_control_if_missing{false};
+
+    /**
+     * @brief Cache-Control value used when add_cache_control_if_missing is true.
+     */
     std::string cache_control{"public, max-age=0"};
+
+    /**
+     * @brief Minimum response body size (bytes) required to compute an ETag.
+     */
     std::size_t min_body_size{1};
   };
 
+  /**
+   * @brief Compute FNV-1a 64-bit hash for a string view.
+   *
+   * This is a fast non-cryptographic hash used here to produce a stable
+   * ETag based on response body contents.
+   *
+   * @param s Input bytes.
+   * @return 64-bit FNV-1a hash.
+   */
   inline std::uint64_t fnv1a_64(std::string_view s)
   {
     std::uint64_t h = 1469598103934665603ull;
@@ -43,6 +71,12 @@ namespace vix::middleware::performance
     return h;
   }
 
+  /**
+   * @brief Convert a 64-bit integer to a 16-char lowercase hex string.
+   *
+   * @param v Input value.
+   * @return 16 hex characters (lowercase).
+   */
   inline std::string to_hex_u64(std::uint64_t v)
   {
     static const char *hex = "0123456789abcdef";
@@ -55,12 +89,38 @@ namespace vix::middleware::performance
     return out;
   }
 
+  /**
+   * @brief Check if a request method is eligible for ETag behavior.
+   *
+   * Typically ETag is meaningful for safe requests, namely GET and HEAD.
+   *
+   * @param req HTTP request.
+   * @return true if method is GET or HEAD.
+   */
   inline bool method_allows_etag(const vix::middleware::Request &req)
   {
     const auto &m = req.method();
     return (m == "GET" || m == "HEAD");
   }
 
+  /**
+   * @brief ETag middleware.
+   *
+   * Behavior:
+   * - Only runs for GET/HEAD requests.
+   * - After downstream handlers run, for successful 2xx responses:
+   *   - If body size >= min_body_size, compute an ETag from the body (FNV-1a 64-bit).
+   *   - Set the ETag header (weak if opt.weak).
+   *   - Optionally set Cache-Control if missing.
+   * - If request has If-None-Match matching the computed ETag:
+   *   - Convert the response to 304 Not Modified and clear the body.
+   *
+   * @note This implementation compares If-None-Match as a raw string to the
+   * exact generated ETag. It does not parse lists of ETags.
+   *
+   * @param opt ETag options.
+   * @return A middleware function (MiddlewareFn).
+   */
   inline MiddlewareFn etag(EtagOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -108,4 +168,4 @@ namespace vix::middleware::performance
 
 } // namespace vix::middleware::performance
 
-#endif
+#endif // VIX_ETAG_HPP

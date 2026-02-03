@@ -22,21 +22,99 @@
 
 namespace vix::middleware::security
 {
+  /**
+   * @brief Configuration options for security response headers.
+   *
+   * These headers harden browser behavior against common attacks such as
+   * MIME sniffing, clickjacking, XSS, data exfiltration, and insecure transport.
+   *
+   * All options are applied *after* the downstream middleware/handler has run.
+   */
   struct SecurityHeadersOptions
   {
-    bool x_content_type_options{true}; // nosniff
-    bool x_frame_options{true};        // DENY
-    bool x_xss_protection{false};      // legacy (often disabled)
-    bool referrer_policy{true};        // no-referrer
-    bool permissions_policy{true};     // minimal deny
-    bool hsts{false};                  // OFF by default (enable only on HTTPS)
-    int hsts_max_age{31536000};        // 1 year
+    /**
+     * @brief Add "X-Content-Type-Options: nosniff".
+     *
+     * Prevents browsers from MIME-sniffing responses away from the declared
+     * Content-Type.
+     */
+    bool x_content_type_options{true};
+
+    /**
+     * @brief Add "X-Frame-Options: DENY".
+     *
+     * Prevents the page from being embedded in frames or iframes (clickjacking).
+     */
+    bool x_frame_options{true};
+
+    /**
+     * @brief Add "X-XSS-Protection".
+     *
+     * Legacy header for older browsers. Disabled by default as modern browsers
+     * ignore or deprecate it.
+     */
+    bool x_xss_protection{false};
+
+    /**
+     * @brief Add "Referrer-Policy: no-referrer".
+     *
+     * Prevents the browser from sending the Referer header.
+     */
+    bool referrer_policy{true};
+
+    /**
+     * @brief Add a minimal "Permissions-Policy".
+     *
+     * Disables sensitive browser features such as geolocation, microphone,
+     * and camera by default.
+     */
+    bool permissions_policy{true};
+
+    /**
+     * @brief Enable HTTP Strict Transport Security (HSTS).
+     *
+     * Disabled by default. Should only be enabled when the application is
+     * served exclusively over HTTPS.
+     */
+    bool hsts{false};
+
+    /**
+     * @brief HSTS max-age in seconds.
+     *
+     * Default: 1 year.
+     */
+    int hsts_max_age{31536000};
+
+    /**
+     * @brief Include subdomains in HSTS policy.
+     */
     bool hsts_include_subdomains{true};
+
+    /**
+     * @brief Enable HSTS preload flag.
+     *
+     * Use with caution: requires domain submission to browser preload lists.
+     */
     bool hsts_preload{false};
-    // CSP (empty => no CSP)
+
+    /**
+     * @brief Content-Security-Policy header value.
+     *
+     * Empty string means no CSP header is set.
+     */
     std::string content_security_policy{};
   };
 
+  /**
+   * @brief Security headers middleware.
+   *
+   * Applies a set of HTTP response headers that improve security posture.
+   * The middleware always calls next() first, then appends headers to the
+   * outgoing response.
+   *
+   * @param opt Security headers configuration.
+   * @return A middleware function (MiddlewareFn).
+   */
   inline MiddlewareFn headers(SecurityHeadersOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -77,4 +155,4 @@ namespace vix::middleware::security
 
 } // namespace vix::middleware::security
 
-#endif
+#endif // VIX_HEADERS_HPP

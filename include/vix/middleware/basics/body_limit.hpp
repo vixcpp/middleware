@@ -23,6 +23,9 @@
 
 namespace vix::middleware::basics
 {
+  /**
+   * @brief Options for the request body size limiter middleware.
+   */
   struct BodyLimitOptions
   {
     std::size_t max_bytes{1 * 1024 * 1024}; // 1 MiB default
@@ -83,6 +86,13 @@ namespace vix::middleware::basics
     return out;
   }
 
+  /**
+   * @brief Enforce a maximum request body size.
+   *
+   * Uses the in-memory body size when already available, otherwise falls back
+   * to Content-Length (if present). If Content-Length is missing, behavior
+   * depends on allow_chunked.
+   */
   inline vix::middleware::MiddlewareFn body_limit(BodyLimitOptions opt = {})
   {
     return [opt = std::move(opt)](vix::middleware::Context &ctx, vix::middleware::Next next) mutable
@@ -167,4 +177,4 @@ namespace vix::middleware::basics
 
 } // namespace vix::middleware::basics
 
-#endif
+#endif // BODY_LIMIT_HPP

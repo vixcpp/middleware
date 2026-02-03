@@ -1,3 +1,15 @@
+/**
+ *
+ *  @file cookies.hpp
+ *  @author Gaspard Kirira
+ *
+ *  Copyright 2025, Gaspard Kirira.  All rights reserved.
+ *  https://github.com/vixcpp/vix
+ *  Use of this source code is governed by a MIT license
+ *  that can be found in the License file.
+ *
+ *  Vix.cpp
+ */
 #ifndef VIX_MIDDLEWARE_HTTP_COOKIES_HPP
 #define VIX_MIDDLEWARE_HTTP_COOKIES_HPP
 
@@ -14,6 +26,9 @@
 
 namespace vix::middleware::cookies
 {
+  /**
+   * @brief HTTP cookie representation.
+   */
   struct Cookie
   {
     std::string name;
@@ -27,6 +42,7 @@ namespace vix::middleware::cookies
     std::string same_site{"Lax"}; // Lax | Strict | None
   };
 
+  /** @brief Trim ASCII whitespace from both ends. */
   inline std::string trim(std::string_view s)
   {
     size_t b = 0;
@@ -38,6 +54,9 @@ namespace vix::middleware::cookies
     return std::string(s.substr(b, e - b));
   }
 
+  /**
+   * @brief Parse a Cookie header into key/value pairs.
+   */
   inline std::unordered_map<std::string, std::string> parse_cookie_header(std::string_view header)
   {
     std::unordered_map<std::string, std::string> out;
@@ -66,6 +85,9 @@ namespace vix::middleware::cookies
     return out;
   }
 
+  /**
+   * @brief Parse cookies from a request.
+   */
   inline std::unordered_map<std::string, std::string> parse(const vix::middleware::Request &req)
   {
     const std::string h = req.header("cookie");
@@ -74,6 +96,9 @@ namespace vix::middleware::cookies
     return parse_cookie_header(h);
   }
 
+  /**
+   * @brief Get a single cookie value by name.
+   */
   inline std::optional<std::string> get(const vix::middleware::Request &req, std::string_view name)
   {
     const std::string h = req.header("cookie");
@@ -87,6 +112,9 @@ namespace vix::middleware::cookies
     return it->second;
   }
 
+  /**
+   * @brief Build a Set-Cookie header value.
+   */
   inline std::string build_set_cookie_value(const Cookie &c)
   {
     std::string s;
@@ -126,6 +154,9 @@ namespace vix::middleware::cookies
     return s;
   }
 
+  /**
+   * @brief Add a Set-Cookie header to the response.
+   */
   inline void set(vix::middleware::Response &res, const Cookie &c)
   {
     using boost::beast::string_view;
@@ -139,4 +170,4 @@ namespace vix::middleware::cookies
 
 } // namespace vix::middleware::cookies
 
-#endif
+#endif // VIX_MIDDLEWARE_HTTP_COOKIES_HPP

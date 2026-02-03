@@ -27,6 +27,9 @@
 
 namespace vix::middleware::app
 {
+  /**
+   * @brief Configuration for installing the HTTP cache middleware in an App.
+   */
   struct HttpCacheAppConfig
   {
     std::string prefix{"/api/"};
@@ -44,6 +47,12 @@ namespace vix::middleware::app
     std::string debug_header{"x-vix-cache-status"};
   };
 
+  /**
+   * @brief Create a default in-memory cache instance from app config.
+   *
+   * @param cfg App-level cache configuration.
+   * @return Shared cache instance.
+   */
   inline std::shared_ptr<vix::cache::Cache>
   make_default_cache(const HttpCacheAppConfig &cfg)
   {
@@ -54,6 +63,12 @@ namespace vix::middleware::app
     return std::make_shared<vix::cache::Cache>(policy, store);
   }
 
+  /**
+   * @brief Build an App middleware that caches HTTP responses.
+   *
+   * @param cfg App-level cache configuration.
+   * @return App middleware.
+   */
   inline vix::App::Middleware http_cache_mw(HttpCacheAppConfig cfg = {})
   {
     auto cache = cfg.cache ? std::move(cfg.cache) : make_default_cache(cfg);
@@ -78,6 +93,12 @@ namespace vix::middleware::app
     return mw;
   }
 
+  /**
+   * @brief Install the HTTP cache middleware on an app prefix.
+   *
+   * @param app Target application.
+   * @param cfg App-level cache configuration.
+   */
   inline void install_http_cache(vix::App &app, HttpCacheAppConfig cfg = {})
   {
     std::string prefix = cfg.prefix;
@@ -89,4 +110,4 @@ namespace vix::middleware::app
 
 } // namespace vix::middleware::app
 
-#endif
+#endif // VIX_HTTP_CACHE_HPP

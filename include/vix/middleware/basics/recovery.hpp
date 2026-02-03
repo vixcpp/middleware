@@ -23,14 +23,23 @@
 
 namespace vix::middleware::basics
 {
+  /**
+   * @brief Options for the recovery middleware.
+   *
+   * recovery catches unhandled exceptions thrown by downstream middleware/handlers
+   * and turns them into a normalized 500 error response.
+   */
   struct RecoveryOptions final
   {
     bool include_exception_message{false}; // prod=false, dev=true
-    bool include_code_location{false};
+    bool include_code_location{false};     // reserved for future (file/line)
     std::string code{"internal_server_error"};
     std::string message{"Internal Server Error"};
   };
 
+  /**
+   * @brief Optional logger interface used by recovery() to report crashes.
+   */
   struct IRecoveryLogger
   {
     virtual ~IRecoveryLogger() = default;
@@ -45,6 +54,23 @@ namespace vix::middleware::basics
     out.append(b.data(), b.size());
   }
 
+  inline std::string request_id_for_log(const Context &ctx)
+  {
+    if (auto *rid = ctx.req().try_state<RequestId>())
+      return rid->value;
+
+    const std::string hdr = ctx.req().header("x-request-id");
+    return hdr;
+  }
+
+  /**
+   * @brief Catch-all recovery middleware.
+   *
+   * If an exception escapes the pipeline, this middleware:
+   * - logs it (if IRecoveryLogger is installed in services)
+   * - returns a 500 error with code/message
+   * - optionally includes the exception message in details (dev mode)
+   */
   inline MiddlewareFn recovery(RecoveryOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next)
@@ -58,13 +84,22 @@ namespace vix::middleware::basics
         if (auto log = ctx.services().get<IRecoveryLogger>())
         {
           std::string msg;
-          msg.reserve(256);
+          msg.reserve(320);
+
           msg += "Unhandled exception: ";
           msg += e.what();
           msg += " (method=";
           msg += ctx.req().method();
           msg += ", path=";
           msg += ctx.req().path();
+
+          const std::string rid = request_id_for_log(ctx);
+          if (!rid.empty())
+          {
+            msg += ", rid=";
+            msg += rid;
+          }
+
           msg += ")";
           log->error(msg);
         }
@@ -75,11 +110,12 @@ namespace vix::middleware::basics
         err.message = opt.message;
 
         if (opt.include_exception_message)
-        {
           err.details["exception"] = e.what();
-        }
 
-        ctx.send_error(err);
+        if (opt.include_code_location)
+          err.details["location"] = "unavailable";
+
+        ctx.send_error(normalize(std::move(err)));
         return;
       }
       catch (...)
@@ -87,11 +123,20 @@ namespace vix::middleware::basics
         if (auto log = ctx.services().get<IRecoveryLogger>())
         {
           std::string msg;
-          msg.reserve(256);
+          msg.reserve(320);
+
           msg += "Unhandled non-std exception (method=";
           msg += ctx.req().method();
           msg += ", path=";
           msg += ctx.req().path();
+
+          const std::string rid = request_id_for_log(ctx);
+          if (!rid.empty())
+          {
+            msg += ", rid=";
+            msg += rid;
+          }
+
           msg += ")";
           log->error(msg);
         }
@@ -102,11 +147,12 @@ namespace vix::middleware::basics
         err.message = opt.message;
 
         if (opt.include_exception_message)
-        {
           err.details["exception"] = "unknown";
-        }
 
-        ctx.send_error(err);
+        if (opt.include_code_location)
+          err.details["location"] = "unavailable";
+
+        ctx.send_error(normalize(std::move(err)));
         return;
       }
     };
@@ -114,4 +160,4 @@ namespace vix::middleware::basics
 
 } // namespace vix::middleware::basics
 
-#endif
+#endif // VIX_RECOVERY_HPP

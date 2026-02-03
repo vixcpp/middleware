@@ -23,11 +23,17 @@
 
 namespace vix::middleware::auth
 {
+  /**
+   * @brief API key state stored in request context.
+   */
   struct ApiKey
   {
     std::string value;
   };
 
+  /**
+   * @brief API key authentication options.
+   */
   struct ApiKeyOptions
   {
     std::string header{"x-api-key"};
@@ -40,6 +46,9 @@ namespace vix::middleware::auth
     std::function<bool(const std::string &)> validate{};
   };
 
+  /**
+   * @brief Extract API key from header or query parameter.
+   */
   inline std::string extract_from_header_or_query(
       const vix::middleware::Request &req,
       const ApiKeyOptions &opt)
@@ -61,6 +70,9 @@ namespace vix::middleware::auth
     return {};
   }
 
+  /**
+   * @brief API key authentication middleware.
+   */
   inline MiddlewareFn api_key(ApiKeyOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -110,4 +122,4 @@ namespace vix::middleware::auth
 
 } // namespace vix::middleware::auth
 
-#endif
+#endif // VIX_API_KEY_HPP

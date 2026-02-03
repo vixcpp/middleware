@@ -27,23 +27,44 @@
 
 namespace vix::middleware
 {
+  /**
+   * @brief Lightweight middleware pipeline for HTTP requests.
+   *
+   * Runs a sequence of middleware functions and an optional final handler.
+   * Supports hooks for tracing, metrics and debug tracing.
+   */
   class HttpPipeline
   {
   public:
+    /** @brief Final handler signature (executed after all middleware). */
     using Final = std::function<void(Request &, Response &)>;
 
     HttpPipeline() = default;
+
+    /** @brief Access services container (mutable). */
     Services &services() noexcept { return services_; }
+
+    /** @brief Access services container (const). */
     const Services &services() const noexcept { return services_; }
+
+    /** @brief Access pipeline hooks (mutable). */
     Hooks &hooks() noexcept { return hooks_; }
+
+    /** @brief Access pipeline hooks (const). */
     const Hooks &hooks() const noexcept { return hooks_; }
 
+    /**
+     * @brief Replace hooks with the provided set.
+     */
     HttpPipeline &set_hooks(Hooks h)
     {
       hooks_ = std::move(h);
       return *this;
     }
 
+    /**
+     * @brief Optional sinks used by dev observability.
+     */
     struct DevObservabilitySinks
     {
       std::shared_ptr<observability::IMetricsSink> metrics{};
@@ -52,6 +73,9 @@ namespace vix::middleware
       DevObservabilitySinks() = default;
     };
 
+    /**
+     * @brief Return true if VIX_ENV indicates a development environment.
+     */
     static bool env_is_dev()
     {
       const char *v = std::getenv("VIX_ENV");
@@ -65,11 +89,22 @@ namespace vix::middleware
       return (s == "dev" || s == "development" || s == "local");
     }
 
+    /**
+     * @brief Enable tracing/metrics/debug trace hooks with default in-memory sinks.
+     *
+     * @param only_if_dev_env If true, only enable when env_is_dev() is true.
+     */
     HttpPipeline &enable_dev_observability(bool only_if_dev_env = true)
     {
       return enable_dev_observability(DevObservabilitySinks{}, only_if_dev_env);
     }
 
+    /**
+     * @brief Enable tracing/metrics/debug trace hooks with custom sinks.
+     *
+     * @param sinks Observability sinks (optional).
+     * @param only_if_dev_env If true, only enable when env_is_dev() is true.
+     */
     HttpPipeline &enable_dev_observability(
         DevObservabilitySinks sinks,
         bool only_if_dev_env = true)
@@ -97,21 +132,33 @@ namespace vix::middleware
       return *this;
     }
 
+    /**
+     * @brief Add a legacy HTTP middleware (Request, Response, Next).
+     */
     HttpPipeline &use(HttpMiddleware legacy)
     {
       middlewares_.push_back(from_http_middleware(std::move(legacy)));
       return *this;
     }
 
+    /**
+     * @brief Add a Context-based middleware.
+     */
     HttpPipeline &use(MiddlewareFn mw)
     {
       middlewares_.push_back(std::move(mw));
       return *this;
     }
 
+    /** @brief Number of middleware in the pipeline. */
     std::size_t size() const noexcept { return middlewares_.size(); }
+
+    /** @brief Clear all middleware. */
     void clear() { middlewares_.clear(); }
 
+    /**
+     * @brief Run the pipeline and optionally execute a final handler.
+     */
     void run(Request &req, Response &res, Final final_handler) const
     {
       const std::size_t n = middlewares_.size();
@@ -144,7 +191,6 @@ namespace vix::middleware
       {
         step();
 
-        // Hooks end (only if no exception escaped)
         if (hooks_.on_end)
           hooks_.on_end(ctx);
       }
@@ -175,6 +221,9 @@ namespace vix::middleware
       }
     }
 
+    /**
+     * @brief Run the pipeline with no final handler.
+     */
     void run(Request &req, Response &res) const
     {
       run(req, res, Final{});
@@ -186,6 +235,9 @@ namespace vix::middleware
     std::vector<MiddlewareFn> middlewares_{};
   };
 
+  /**
+   * @brief Wrap a handler with a pipeline to produce a (Request, Response) callable.
+   */
   template <typename Handler>
   auto wrap(Handler handler, HttpPipeline pipeline)
   {
@@ -199,4 +251,4 @@ namespace vix::middleware
 
 } // namespace vix::middleware
 
-#endif
+#endif // VIX_PIPELINE_HPP

@@ -24,11 +24,17 @@
 
 namespace vix::middleware::parsers
 {
+  /**
+   * @brief Parsed application/x-www-form-urlencoded body.
+   */
   struct FormBody
   {
     std::unordered_map<std::string, std::string> fields{};
   };
 
+  /**
+   * @brief URL-encoded form parser options.
+   */
   struct FormParserOptions
   {
     bool require_content_type{true};
@@ -36,6 +42,7 @@ namespace vix::middleware::parsers
     bool store_in_state{true};
   };
 
+  /** @brief Decode a application/x-www-form-urlencoded string. */
   inline std::string url_decode(std::string_view in)
   {
     std::string out;
@@ -82,6 +89,7 @@ namespace vix::middleware::parsers
     return out;
   }
 
+  /** @brief Parse URL-encoded key/value pairs. */
   inline std::unordered_map<std::string, std::string>
   parse_urlencoded(std::string_view qs)
   {
@@ -125,6 +133,9 @@ namespace vix::middleware::parsers
     return out;
   }
 
+  /**
+   * @brief Parse and optionally store a URL-encoded form body in request state.
+   */
   inline MiddlewareFn form(FormParserOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -173,4 +184,4 @@ namespace vix::middleware::parsers
 
 } // namespace vix::middleware::parsers
 
-#endif
+#endif // VIX_FORM_HPP

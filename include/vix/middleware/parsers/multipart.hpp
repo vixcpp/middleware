@@ -13,6 +13,7 @@
 #ifndef VIX_MULTIPART_HPP
 #define VIX_MULTIPART_HPP
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -22,6 +23,9 @@
 
 namespace vix::middleware::parsers
 {
+  /**
+   * @brief Minimal multipart/form-data info extracted from the request.
+   */
   struct MultipartInfo
   {
     std::string content_type{};
@@ -29,13 +33,22 @@ namespace vix::middleware::parsers
     std::size_t body_bytes{0};
   };
 
+  /**
+   * @brief Options for the lightweight multipart "probe" middleware.
+   */
   struct MultipartOptions
   {
     bool require_boundary{true};
-    std::size_t max_bytes{0};
-    bool store_in_state{true};
+    std::size_t max_bytes{0};  // 0 => no limit
+    bool store_in_state{true}; // store MultipartInfo in ctx.state
   };
 
+  /**
+   * @brief Validate multipart/form-data headers and optionally store boundary info.
+   *
+   * This middleware does not parse parts. It only validates Content-Type and boundary,
+   * and applies a simple body size limit if requested.
+   */
   inline MiddlewareFn multipart(MultipartOptions opt = {})
   {
     return [opt = std::move(opt)](Context &ctx, Next next) mutable
@@ -92,4 +105,4 @@ namespace vix::middleware::parsers
 
 } // namespace vix::middleware::parsers
 
-#endif
+#endif // VIX_MULTIPART_HPP
