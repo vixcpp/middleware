@@ -1,0 +1,29 @@
+{
+  "name": "middleware",
+  "namespace": "vix",
+  "version": "0.1.0",
+  "type": "header-and-source",
+  "include": "include",
+  "src": "src",
+  "license": "MIT",
+  "description": "Middleware utilities for Vix.cpp: HTTP cache, auth, security, observability, pipelines, periodic tasks, and static content bridging.",
+  "keywords": [
+    "cpp",
+    "vix",
+    "middleware",
+    "http",
+    "auth",
+    "security",
+    "observability",
+    "pipeline",
+    "cache",
+    "static-content"
+  ],
+  "repository": "https://github.com/vixcpp/middleware",
+  "authors": [
+    {
+      "name": "Gaspard Kirira",
+      "github": "Gaspardkirira"
+    }
+  ]
+}
