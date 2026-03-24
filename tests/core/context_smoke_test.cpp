@@ -11,23 +11,32 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <utility>
 
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/middleware.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(boost::beast::http::verb method, std::string target)
+static vix::vhttp::Request make_req(
+    std::string method,
+    std::string target,
+    std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
+
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(map),
+      "");
 }
 
 struct FooState
@@ -37,29 +46,25 @@ struct FooState
 
 static void test_context_state_roundtrip()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/ctx");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/ctx");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
 
   p.use([](Context &ctx, Next next)
         {
-        ctx.set_state(FooState{42});
-        next(); });
+          ctx.set_state(FooState{42});
+          next(); });
 
-  p.run(req, w, [&](Request &, Response &)
+  p.run(req, w, [&](Request &request, Response &resp)
         {
-        auto* st = req.try_state<FooState>();
-        assert(st != nullptr);
-        assert(st->x == 42);
-        w.ok().text("OK"); });
+          auto *st = request.try_state<FooState>();
+          assert(st != nullptr);
+          assert(st->x == 42);
+          resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
   std::cout << "[OK] Context state roundtrip\n";
@@ -67,12 +72,8 @@ static void test_context_state_roundtrip()
 
 static void test_context_send_error()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/ctx-error");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/ctx-error");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -84,16 +85,12 @@ static void test_context_send_error()
           e.code = "unauthorized";
           e.message = "Missing token";
           e.details["hint"] = "Provide Authorization: Bearer <token>";
-          ctx.send_error(e);
-          // no next => short-circuit
-        });
+          ctx.send_error(e); });
 
-  p.run(req, w, [&](Request &, Response &)
-        {
-        // should not execute
-        w.ok().text("NO"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("NO"); });
 
-  assert(res.result_int() == 401);
+  assert(res.status() == 401);
   assert(res.body().find("\"code\"") != std::string::npos);
   assert(res.body().find("unauthorized") != std::string::npos);
   assert(res.body().find("Missing token") != std::string::npos);

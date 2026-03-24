@@ -14,32 +14,33 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/observability/metrics.hpp>
 
 using namespace vix::middleware;
 using namespace vix::middleware::observability;
 
-static vix::vhttp::RawRequest make_req(boost::beast::http::verb method, std::string target)
+static vix::vhttp::Request make_req(std::string method, std::string target)
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(headers),
+      "");
 }
 
 static void test_metrics_hooks()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/metrics");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/metrics");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -51,10 +52,10 @@ static void test_metrics_hooks()
 
   p.set_hooks(metrics_hooks(sink, opt));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
   assert(sink->counter("vix_http_requests_total") == 1);
@@ -69,12 +70,8 @@ static void test_metrics_hooks()
 
 static void test_metrics_middleware()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/metrics-mw");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/metrics-mw");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -82,10 +79,10 @@ static void test_metrics_middleware()
   auto sink = std::make_shared<InMemoryMetrics>();
   p.use(metrics_mw(sink));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.status(201).text("CREATED"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.status(201).text("CREATED"); });
 
-  assert(res.result_int() == 201);
+  assert(res.status() == 201);
   assert(res.body() == "CREATED");
 
   assert(sink->counter("vix_http_requests_total") == 1);

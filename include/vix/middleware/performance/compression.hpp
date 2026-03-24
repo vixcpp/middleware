@@ -245,7 +245,7 @@ namespace vix::middleware::performance
   inline bool response_already_encoded(vix::middleware::Response &res)
   {
     auto &raw = res.res;
-    return !std::string(raw["Content-Encoding"]).empty();
+    return !raw.header("Content-Encoding").empty();
   }
 
   /**
@@ -270,8 +270,7 @@ namespace vix::middleware::performance
   inline void set_body_and_length(vix::middleware::Response &res, std::string &&body)
   {
     auto &raw = res.res;
-    raw.body() = std::move(body);
-    raw.content_length(raw.body().size());
+    raw.set_body(std::move(body));
   }
 
   /**
@@ -322,7 +321,7 @@ namespace vix::middleware::performance
       if (opt.add_vary)
         res.append("Vary", "Accept-Encoding");
 
-      if (!is_compressible_status(raw.result_int()))
+      if (!is_compressible_status(raw.status()))
         return;
 
       if (response_already_encoded(res))

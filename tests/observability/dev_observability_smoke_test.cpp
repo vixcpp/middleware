@@ -14,50 +14,44 @@
 #include <cstdlib>
 #include <iostream>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req()
+static vix::vhttp::Request make_req()
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/dev", 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
+  return vix::vhttp::Request("GET", "/dev", std::move(headers), "");
 }
 
 int main()
 {
-  // Force dev env
 #if defined(_WIN32)
   _putenv_s("VIX_ENV", "dev");
 #else
   setenv("VIX_ENV", "dev", 1);
 #endif
 
-  namespace http = boost::beast::http;
-
-  auto raw = make_req();
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req();
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
-  p.enable_dev_observability(); // should activate because VIX_ENV=dev
+  p.enable_dev_observability();
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
-  // tracing should emit ids
-  assert(res.find("x-trace-id") != res.end());
-  assert(res.find("x-span-id") != res.end());
+  assert(res.has_header("x-trace-id"));
+  assert(res.has_header("x-span-id"));
 
   std::cout << "[OK] enable_dev_observability\n";
   return 0;

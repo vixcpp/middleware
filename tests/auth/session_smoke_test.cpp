@@ -11,39 +11,39 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <string_view>
 
 #include <vix/middleware/pipeline.hpp>
-#include <vix/middleware/auth/session.hpp> // a creer
-#include <vix/middleware/http/cookies.hpp> // get/set cookie helpers
+#include <vix/middleware/auth/session.hpp>
+#include <vix/middleware/http/cookies.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string target = "/")
+static vix::vhttp::Request make_req(std::string target = "/")
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, target, 11};
-  req.set(http::field::host, "localhost");
+  vix::vhttp::Request req;
+  req.set_method("GET");
+  req.set_target(std::move(target));
+  req.set_header("Host", "localhost");
   return req;
 }
 
-static std::string header_value(
-    const boost::beast::http::response<boost::beast::http::string_body> &res,
-    boost::beast::http::field f)
+template <typename ResponseLike>
+static std::string header_value(const ResponseLike &res, std::string_view name)
 {
-  auto it = res.find(f);
-  if (it == res.end())
-    return {};
-  return std::string(it->value());
+  for (const auto &[key, value] : res.headers())
+  {
+    if (key == name)
+      return value;
+  }
+  return {};
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
   HttpPipeline p;
 
   auth::SessionOptions opt{};
@@ -53,27 +53,23 @@ int main()
   opt.ttl = std::chrono::seconds(60);
   p.use(auth::session(opt));
 
-  auto raw = make_req("/secure");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("/secure");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
-  p.run(req, w, [&](Request &r, Response &ww)
+  p.run(req, w, [&](Request &r, Response &resp)
         {
-    // session must exist
-    auto* s = r.try_state<auth::Session>();
-    assert(s != nullptr);
-    assert(!s->id.empty());
-    assert(s->is_new == true);
+          auto *s = r.try_state<auth::Session>();
+          assert(s != nullptr);
+          assert(!s->id.empty());
+          assert(s->is_new == true);
 
-    ww.ok().text("OK"); });
+          resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
-  // must set cookie
-  const std::string set_cookie = header_value(res, http::field::set_cookie);
+  const std::string set_cookie = header_value(res, "Set-Cookie");
   assert(!set_cookie.empty());
   assert(set_cookie.find("vix.sid=") != std::string::npos);
 

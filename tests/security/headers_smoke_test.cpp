@@ -12,41 +12,40 @@
  */
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/security/headers.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req()
+static vix::vhttp::Request make_req()
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/x", 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
+  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req();
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req();
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::security::headers());
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
-  assert(res.find("X-Content-Type-Options") != res.end());
-  assert(res.find("X-Frame-Options") != res.end());
+  assert(res.status() == 200);
+  assert(res.has_header("X-Content-Type-Options"));
+  assert(res.has_header("X-Frame-Options"));
 
   std::cout << "[OK] security headers\n";
   return 0;

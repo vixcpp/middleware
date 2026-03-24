@@ -24,8 +24,6 @@
 #include <vector>
 #include <cctype>
 
-#include <boost/beast/http.hpp>
-
 #include <vix/middleware/middleware.hpp>
 #include <vix/cache/Cache.hpp>
 #include <vix/cache/CacheContext.hpp>
@@ -34,8 +32,6 @@
 
 namespace vix::middleware
 {
-  namespace http = boost::beast::http;
-
   /**
    * @brief Options for the HTTP response cache middleware.
    */
@@ -58,7 +54,9 @@ namespace vix::middleware
   inline std::int64_t now_ms()
   {
     using namespace std::chrono;
-    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    return duration_cast<milliseconds>(
+               steady_clock::now().time_since_epoch())
+        .count();
   }
 
   /**
@@ -77,31 +75,32 @@ namespace vix::middleware
   /**
    * @brief Convert request headers to a key/value map.
    */
-  inline std::unordered_map<std::string, std::string> request_headers_map(Request &req)
+  inline std::unordered_map<std::string, std::string> request_headers_map(
+      Request &req)
   {
     std::unordered_map<std::string, std::string> h;
-    for (auto const &field : req.raw())
+
+    for (const auto &[key, value] : req.headers())
     {
-      std::string k(field.name_string().data(), field.name_string().size());
-      std::string v(field.value().data(), field.value().size());
-      h.emplace(std::move(k), std::move(v));
+      h.emplace(key, value);
     }
+
     return h;
   }
 
   /**
    * @brief Convert response headers to a key/value map.
    */
-  inline std::unordered_map<std::string, std::string>
-  response_headers_map(http::response<http::string_body> &res)
+  inline std::unordered_map<std::string, std::string> response_headers_map(
+      const vix::vhttp::Response &res)
   {
     std::unordered_map<std::string, std::string> h;
-    for (auto const &field : res.base())
+
+    for (const auto &[key, value] : res.headers())
     {
-      std::string k(field.name_string().data(), field.name_string().size());
-      std::string v(field.value().data(), field.value().size());
-      h.emplace(std::move(k), std::move(v));
+      h.emplace(key, value);
     }
+
     return h;
   }
 
@@ -136,13 +135,16 @@ namespace vix::middleware
   {
     if (a.size() != b.size())
       return false;
+
     for (size_t i = 0; i < a.size(); ++i)
     {
-      unsigned char ca = static_cast<unsigned char>(a[i]);
-      unsigned char cb = static_cast<unsigned char>(b[i]);
+      const unsigned char ca = static_cast<unsigned char>(a[i]);
+      const unsigned char cb = static_cast<unsigned char>(b[i]);
+
       if (std::tolower(ca) != std::tolower(cb))
         return false;
     }
+
     return true;
   }
 
@@ -171,7 +173,6 @@ namespace vix::middleware
         return;
       }
 
-      // bypass: skip cache entirely
       if (has_bypass(req, opt))
       {
         next();
@@ -194,49 +195,43 @@ namespace vix::middleware
 
       if (auto hit = cache->get(key, t0, ctx))
       {
-        auto &raw_res = res.res;
-        raw_res.result(static_cast<http::status>(hit->status));
+        res.status(hit->status);
 
         for (const auto &kv : hit->headers)
         {
           if (ieq_ascii(kv.first, "content-length"))
             continue;
 
-          raw_res.set(kv.first, kv.second);
+          res.header(kv.first, kv.second);
         }
 
-        raw_res.set("x-vix-cache-status", "hit");
-
-        raw_res.body() = hit->body;
-        raw_res.prepare_payload();
+        res.header("x-vix-cache-status", "hit");
+        res.res.set_body(hit->body);
         return;
       }
 
-      // MISS: let handler generate response, then cache it
-      next(); // OK (NextOnce)
+      next();
 
-      // At this point, res.res is finalized by handlers like res.json()
-      auto &raw_res = res.res;
-      const auto sc_u = raw_res.result_int();
+      auto &native_res = res.res;
+      const int status_code = native_res.status();
 
-      // always helpful to debug
       res.header("x-vix-cache-status", "miss");
 
-      if (opt.cache_200_only && sc_u != 200u)
+      if (opt.cache_200_only && status_code != 200)
         return;
 
-      if (opt.require_body && raw_res.body().empty())
+      if (opt.require_body && native_res.body().empty())
         return;
 
       vix::cache::CacheEntry e;
-      e.status = static_cast<int>(sc_u);
-      e.body = raw_res.body();
+      e.status = status_code;
+      e.body = native_res.body();
       e.created_at_ms = t0;
 
-      // capture + normalize headers so we can reliably replay content-type, etc.
-      e.headers = response_headers_map(raw_res);
+      e.headers = response_headers_map(native_res);
       vix::cache::HeaderUtil::normalizeInPlace(e.headers);
-      cache->put(key, e);
+
+      cache->put(key, std::move(e));
     };
   }
 

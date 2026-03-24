@@ -12,32 +12,31 @@
  */
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/security/cors.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_preflight()
+static vix::vhttp::Request make_preflight()
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::options, "/api", 11};
-  req.set(http::field::host, "localhost");
-  req.set("Origin", "https://example.com");
-  req.set("Access-Control-Request-Method", "POST");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+  headers.emplace("Origin", "https://example.com");
+  headers.emplace("Access-Control-Request-Method", "POST");
+
+  return vix::vhttp::Request("OPTIONS", "/api", std::move(headers), "");
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_preflight();
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_preflight();
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   vix::middleware::security::CorsOptions opt;
@@ -48,12 +47,14 @@ int main()
   p.use(vix::middleware::security::cors(opt));
 
   int final_calls = 0;
-  p.run(req, w, [&](Request &, Response &)
-        { final_calls++; w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        {
+          final_calls++;
+          resp.ok().text("OK"); });
 
   assert(final_calls == 0);
-  assert(res.result_int() == 204);
-  assert(res.find("Access-Control-Allow-Origin") != res.end());
+  assert(res.status() == 204);
+  assert(res.has_header("Access-Control-Allow-Origin"));
 
   std::cout << "[OK] cors preflight\n";
   return 0;

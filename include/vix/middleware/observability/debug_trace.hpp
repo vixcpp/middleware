@@ -181,7 +181,7 @@ namespace vix::middleware::observability
 
     if (opt.include_status)
     {
-      const int sc = static_cast<int>(ctx.res().res.result_int());
+      const int sc = ctx.res().res.status();
       s += " status=";
       s += std::to_string(sc);
     }

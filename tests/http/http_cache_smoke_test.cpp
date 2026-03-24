@@ -11,38 +11,44 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/http_cache.hpp>
 #include <vix/cache/Cache.hpp>
-#include <vix/cache/CachePolicy.hpp>
-#include <vix/cache/MemoryStore.hpp>
+#include <vix/cache/CacheContext.hpp>
+#include <vix/cache/CacheEntry.hpp>
 #include <vix/cache/CacheKey.hpp>
+#include <vix/cache/CachePolicy.hpp>
 #include <vix/cache/HeaderUtil.hpp>
+#include <vix/cache/MemoryStore.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(
-    boost::beast::http::verb method,
+static vix::vhttp::Request make_req(
+    std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {},
     std::string body = {})
 {
-  namespace http = boost::beast::http;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
 
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
 
-  for (auto &kv : headers)
-    req.set(kv.first, kv.second);
-
-  req.body() = std::move(body);
-  req.prepare_payload();
-  return req;
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(map),
+      std::move(body));
 }
 
 static std::shared_ptr<vix::cache::Cache> make_cache()
@@ -56,43 +62,28 @@ static std::shared_ptr<vix::cache::Cache> make_cache()
 static std::string compute_key_for(const vix::vhttp::Request &req,
                                    const HttpCacheOptions &opt)
 {
-  const std::string query_raw = extract_query_raw_from_target(req.target());
-
-  std::unordered_map<std::string, std::string> headers;
-  for (auto const &field : req.raw())
-  {
-    std::string k(field.name_string().data(), field.name_string().size());
-    std::string v(field.value().data(), field.value().size());
-    headers.emplace(std::move(k), std::move(v));
-  }
-
+  std::unordered_map<std::string, std::string> headers = req.headers();
   vix::cache::HeaderUtil::normalizeInPlace(headers);
 
   return vix::cache::CacheKey::fromRequest(
       req.method(),
       req.path(),
-      query_raw,
+      req.query_string(),
       headers,
       opt.vary_headers);
 }
 
 static void test_cache_hit_serves_response()
 {
-  namespace http = boost::beast::http;
-
   std::shared_ptr<vix::cache::Cache> cache = make_cache();
 
-  // request
-  auto raw = make_req(http::verb::get, "/api/users?page=1");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/api/users?page=1");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
   auto key = compute_key_for(req, opt);
 
-  // prefill cache
   vix::cache::CacheEntry e;
   e.status = 200;
   e.body = R"({"cached":true})";
@@ -105,11 +96,11 @@ static void test_cache_hit_serves_response()
 
   mw(req, w, [&]()
      {
-        next_calls++;
-        w.ok().text("should not run"); });
+       next_calls++;
+       w.ok().text("should not run"); });
 
   assert(next_calls == 0);
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == R"({"cached":true})");
 
   std::cout << "[OK] http_cache: hit serves cached response\n";
@@ -117,13 +108,10 @@ static void test_cache_hit_serves_response()
 
 static void test_cache_miss_then_put_on_200()
 {
-  namespace http = boost::beast::http;
   std::shared_ptr<vix::cache::Cache> cache = make_cache();
 
-  auto raw = make_req(http::verb::get, "/api/products?limit=10");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/api/products?limit=10");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
@@ -134,14 +122,13 @@ static void test_cache_miss_then_put_on_200()
 
   mw(req, w, [&]()
      {
-        next_calls++;
-        w.ok().text("from network"); });
+       next_calls++;
+       w.ok().text("from network"); });
 
   assert(next_calls == 1);
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "from network");
 
-  // should now be cached
   auto got = cache->get(key, now_ms(), vix::cache::CacheContext::Online());
   assert(got.has_value());
   assert(got->body == "from network");
@@ -151,17 +138,13 @@ static void test_cache_miss_then_put_on_200()
 
 static void test_bypass_header_skips_cache()
 {
-  namespace http = boost::beast::http;
-
   std::shared_ptr<vix::cache::Cache> cache = make_cache();
 
-  auto raw = make_req(
-      http::verb::get,
+  auto req = make_req(
+      "GET",
       "/api/x",
       {{"x-vix-cache", "bypass"}});
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
@@ -174,10 +157,11 @@ static void test_bypass_header_skips_cache()
 
   mw(req, w, [&]()
      {
-        next_calls++;
-        w.ok().text("bypassed"); });
+       next_calls++;
+       w.ok().text("bypassed"); });
 
   assert(next_calls == 1);
+  assert(res.status() == 200);
   assert(res.body() == "bypassed");
 
   std::cout << "[OK] http_cache: bypass header works\n";

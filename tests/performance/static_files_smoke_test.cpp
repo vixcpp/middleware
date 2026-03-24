@@ -1,6 +1,6 @@
 /**
  *
- *  @file static_files_smoke_test.cpp
+ *  @file etag_smoke_test.cpp
  *  @author Gaspard Kirira
  *
  *  Copyright 2025, Gaspard Kirira.  All rights reserved.
@@ -11,51 +11,64 @@
  *  Vix.cpp
  */
 #include <cassert>
-#include <filesystem>
-#include <fstream>
+#include <initializer_list>
 #include <iostream>
+#include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
-#include <vix/middleware/performance/static_files.hpp>
+#include <vix/middleware/performance/etag.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string target)
+static vix::vhttp::Request make_req(
+    std::string target,
+    std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, target, 11};
-  req.set(http::field::host, "localhost");
-  return req;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
+
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request("GET", std::move(target), std::move(map), "");
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
+  HttpPipeline p;
+  p.use(performance::etag());
 
-  // temp dir
-  const auto root = std::filesystem::temp_directory_path() / "vix_static_smoke";
-  std::filesystem::create_directories(root);
+  std::string etag_value;
+
   {
-    std::ofstream f(root / "index.html");
-    f << "<h1>OK</h1>";
+    auto req = make_req("/x");
+    vix::vhttp::Response res;
+    vix::vhttp::ResponseWrapper w(res);
+
+    p.run(req, w, [&](Request &, Response &resp)
+          { resp.ok().text("Hello"); });
+
+    assert(res.status() == 200);
+    etag_value = res.header("ETag");
+    assert(!etag_value.empty());
   }
 
-  HttpPipeline p;
-  p.use(performance::static_files(root, {.mount = "/", .index_file = "index.html"}));
+  {
+    auto req = make_req("/x", {{"If-None-Match", etag_value}});
+    vix::vhttp::Response res;
+    vix::vhttp::ResponseWrapper w(res);
 
-  auto raw = make_req("/");
-  http::response<http::string_body> res;
-  vix::vhttp::Request req(raw, {});
-  vix::vhttp::ResponseWrapper w(res);
+    p.run(req, w, [&](Request &, Response &resp)
+          { resp.ok().text("Hello"); });
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.status(404).text("nope"); });
+    assert(res.status() == 304);
+    assert(res.body().empty());
+  }
 
-  assert(res.result_int() == 200);
-  assert(res.body().find("OK") != std::string::npos);
-
-  std::cout << "[OK] static_files smoke\n";
+  std::cout << "[OK] etag smoke\n";
   return 0;
 }

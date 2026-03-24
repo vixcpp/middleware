@@ -225,7 +225,7 @@ namespace vix::middleware::basics
     {
       next();
 
-      const int status_code = static_cast<int>(ctx.res().res.result_int());
+      const int status_code = ctx.res().res.status();
 
       std::int64_t duration_ms = -1;
       if (opt.log_timing)

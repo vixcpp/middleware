@@ -13,27 +13,28 @@
 #include <cassert>
 #include <iostream>
 
-#include <boost/beast/http.hpp>
-
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/auth/api_key.hpp>
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(bool with_key)
+static vix::vhttp::Request make_req(bool with_key)
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/secure", 11};
-  req.set(http::field::host, "localhost");
+  vix::vhttp::Request req;
+  req.set_method("GET");
+  req.set_target("/secure");
+  req.set_header("Host", "localhost");
+
   if (with_key)
-    req.set("x-api-key", "secret");
+    req.set_header("x-api-key", "secret");
+
   return req;
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
   HttpPipeline p;
 
   auth::ApiKeyOptions opt{};
@@ -42,29 +43,27 @@ int main()
   p.use(auth::api_key(opt));
 
   {
-    auto raw = make_req(true);
-    http::response<http::string_body> res;
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req(true);
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
-    p.run(req, w, [&](Request &r, Response &)
+    p.run(req, w, [&](Request &r, Response &resp)
           {
-                  auto &k = r.state<auth::ApiKey>();
-                  assert(k.value == "secret");
-                  w.ok().text("OK"); });
+            auto &k = r.state<auth::ApiKey>();
+            assert(k.value == "secret");
+            resp.ok().text("OK"); });
 
-    assert(res.result_int() == 200);
+    assert(res.status() == 200);
   }
 
   {
-    auto raw = make_req(false);
-    http::response<http::string_body> res;
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req(false);
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &) {});
 
-    assert(res.result_int() == 401);
+    assert(res.status() == 401);
   }
 
   std::cout << "[OK] api_key middleware\n";

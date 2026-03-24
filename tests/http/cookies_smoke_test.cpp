@@ -11,45 +11,44 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <utility>
 
 #include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
 #include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/http/cookies.hpp>
 
-static vix::vhttp::RawRequest make_req_with_cookie(std::string cookie_header)
+static vix::vhttp::Request make_req_with_cookie(
+    std::string cookie_header,
+    std::initializer_list<std::pair<std::string, std::string>> extra_headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/x", 11};
-  req.set(http::field::host, "localhost");
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
   if (!cookie_header.empty())
-    req.set(http::field::cookie, cookie_header);
-  return req;
+    headers.emplace("cookie", std::move(cookie_header));
+
+  for (const auto &kv : extra_headers)
+    headers.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
 }
 
-static std::string get_header_value(
-    const boost::beast::http::response<boost::beast::http::string_body> &res,
-    boost::beast::http::field f)
+static std::string get_header_value(const vix::vhttp::Response &res, std::string_view name)
 {
-  auto it = res.find(f);
-  if (it == res.end())
-    return {};
-  return std::string(it->value());
+  return res.header(name);
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
   // 1) parse + get
   {
-    auto raw = make_req_with_cookie("a=1; b=hello; theme=dark");
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req_with_cookie("a=1; b=hello; theme=dark");
 
-    auto m = vix::middleware::http::parse(req);
+    auto m = vix::middleware::cookies::parse(req);
     assert(m.size() == 3);
     assert(m["a"] == "1");
     assert(m["b"] == "hello");
@@ -65,8 +64,7 @@ int main()
 
   // 2) whitespace robustness
   {
-    auto raw = make_req_with_cookie("  a =  1  ;   b= hello  ;c=world ");
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req_with_cookie("  a =  1  ;   b= hello  ;c=world ");
 
     auto a = vix::middleware::cookies::get(req, "a");
     auto b = vix::middleware::cookies::get(req, "b");
@@ -79,7 +77,7 @@ int main()
 
   // 3) set-cookie formatting
   {
-    http::response<http::string_body> res;
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
     vix::middleware::cookies::Cookie c;
@@ -93,10 +91,9 @@ int main()
 
     vix::middleware::cookies::set(w, c);
 
-    const std::string set_cookie = get_header_value(res, http::field::set_cookie);
+    const std::string set_cookie = get_header_value(res, "Set-Cookie");
     assert(!set_cookie.empty());
 
-    // minimal checks (order matters because build_set_cookie_value writes sequentially)
     assert(set_cookie.find("vix.sid=TOKEN123") != std::string::npos);
     assert(set_cookie.find("Path=/") != std::string::npos);
     assert(set_cookie.find("Max-Age=3600") != std::string::npos);
@@ -105,9 +102,9 @@ int main()
     assert(set_cookie.find("SameSite=Lax") != std::string::npos);
   }
 
-  // 4) multiple Set-Cookie headers are repeatable (insert)
+  // 4) current API replaces previous Set-Cookie value
   {
-    http::response<http::string_body> res;
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
     vix::middleware::cookies::Cookie a;
@@ -121,14 +118,10 @@ int main()
     vix::middleware::cookies::set(w, a);
     vix::middleware::cookies::set(w, b);
 
-    // Count Set-Cookie occurrences in the raw header sequence
-    int count = 0;
-    for (auto const &f : res.base())
-    {
-      if (f.name() == http::field::set_cookie)
-        ++count;
-    }
-    assert(count == 2);
+    const std::string set_cookie = get_header_value(res, "Set-Cookie");
+    assert(!set_cookie.empty());
+    assert(set_cookie.find("b=2") != std::string::npos);
+    assert(set_cookie.find("a=1") == std::string::npos);
   }
 
   std::cout << "[OK] cookies\n";

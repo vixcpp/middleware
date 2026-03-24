@@ -13,30 +13,32 @@
 #include <cassert>
 #include <iostream>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <utility>
 
 #include <vix/middleware/pipeline.hpp>
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/http/RequestHandler.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string target = "/")
+static vix::vhttp::Request make_req(std::string target = "/")
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, target, 11};
-  req.set(http::field::host, "localhost");
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
+  return vix::vhttp::Request(
+      "GET",
+      std::move(target),
+      std::move(headers),
+      "");
 }
 
 static void test_pipeline_order_and_final()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req("/x");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("/x");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -45,23 +47,23 @@ static void test_pipeline_order_and_final()
 
   p.use([&](Request &, Response &, Next next)
         {
-        trace += "A";
-        next();
-        trace += "a"; });
+          trace += "A";
+          next();
+          trace += "a"; });
 
   p.use([&](Request &, Response &, Next next)
         {
-        trace += "B";
-        next();
-        trace += "b"; });
+          trace += "B";
+          next();
+          trace += "b"; });
 
-  p.run(req, w, [&](Request &, Response &)
+  p.run(req, w, [&](Request &, Response &resp)
         {
-        trace += "F";
-        w.ok().text("OK"); });
+          trace += "F";
+          resp.ok().text("OK"); });
 
   assert(trace == "ABFba");
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
   std::cout << "[OK] pipeline order + final\n";
@@ -69,36 +71,30 @@ static void test_pipeline_order_and_final()
 
 static void test_pipeline_short_circuit()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req("/short");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("/short");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   int called = 0;
 
-  p.use([&](Request &, Response &, Next)
+  p.use([&](Request &, Response &resp, Next)
         {
           called++;
-          w.status(403).text("blocked");
-          // no next() => stop chain
-        });
+          resp.status(403).text("blocked"); });
 
   p.use([&](Request &, Response &, Next next)
         {
-        called++;
-        next(); });
+          called++;
+          next(); });
 
-  p.run(req, w, [&](Request &, Response &)
+  p.run(req, w, [&](Request &, Response &resp)
         {
-        called++;
-        w.ok().text("final"); });
+          called++;
+          resp.ok().text("final"); });
 
   assert(called == 1);
-  assert(res.result_int() == 403);
+  assert(res.status() == 403);
   assert(res.body() == "blocked");
 
   std::cout << "[OK] pipeline short-circuit\n";

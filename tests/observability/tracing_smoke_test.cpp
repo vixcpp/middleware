@@ -11,81 +11,74 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/observability/tracing.hpp>
 
 using namespace vix::middleware;
 using namespace vix::middleware::observability;
 
-static vix::vhttp::RawRequest make_req(
-    boost::beast::http::verb method,
+static vix::vhttp::Request make_req(
+    std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  for (auto &kv : headers)
-    req.set(kv.first, kv.second);
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
+
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(map),
+      "");
 }
 
 static void test_tracing_hooks_generates_and_sets_headers()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/t");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/t");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.set_hooks(tracing_hooks());
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
-  // response headers should exist
-  auto trace = res.find("x-trace-id");
-  auto span = res.find("x-span-id");
-  assert(trace != res.end());
-  assert(span != res.end());
+  assert(res.has_header("x-trace-id"));
+  assert(res.has_header("x-span-id"));
 
   std::cout << "[OK] tracing hooks headers\n";
 }
 
 static void test_tracing_mw_accepts_incoming_trace()
 {
-  namespace http = boost::beast::http;
-
-  const std::string incoming_trace = "0123456789abcdef0123456789abcdef"; // 32 hex
-  auto raw = make_req(http::verb::get, "/t2", {{"x-trace-id", incoming_trace}});
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  const std::string incoming_trace = "0123456789abcdef0123456789abcdef";
+  auto req = make_req("GET", "/t2", {{"x-trace-id", incoming_trace}});
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(tracing_mw());
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  auto trace = res.find("x-trace-id");
-  assert(trace != res.end());
-
-  // should keep incoming trace id
-  assert(std::string(trace->value()) == incoming_trace);
+  assert(res.has_header("x-trace-id"));
+  assert(res.header("x-trace-id") == incoming_trace);
 
   std::cout << "[OK] tracing middleware incoming trace\n";
 }

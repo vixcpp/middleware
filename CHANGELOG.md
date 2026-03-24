@@ -6,38 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [2.0.0] - 2026-03-24
+
+- Migrated all middleware to the new vix::vhttp HTTP layer
+- Removed all dependencies on Boost.Beast-based APIs
+- Updated middleware interface to use Request / ResponseWrapper
+- Refactored auth, performance, observability and http modules
+- Rewrote pipeline integration for new async-first architecture
+- Updated all tests and examples to the new HTTP model
+
+Breaking changes:
+- Old Beast-based Request/Response APIs removed
+- Middleware implementations must use ResponseWrapper
+- Header/body/status access now uses vix::vhttp primitives
+
+This release aligns middleware with Vix v2 core
+and completes the transition to a fully native HTTP stack.
+
 ## [1.3.1] - 2025-12-26
 
 ### Added
-- 
+-
 
 ### Changed
-- 
+-
 
 ### Removed
-- 
+-
 
 ## [1.3.0] - 2025-12-25
 
 ### Added
-- 
+-
 
 ### Changed
-- 
+-
 
 ### Removed
-- 
+-
 
 ## [1.2.0] - 2025-12-24
 
 ### Added
-- 
+-
 
 ### Changed
-- 
+-
 
 ### Removed
-- 
+-
 
 
 ### Middleware v1.2.0

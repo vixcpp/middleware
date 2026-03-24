@@ -235,8 +235,7 @@ namespace vix::middleware::performance
       if (m == "HEAD")
       {
         ctx.res().status(200);
-        ctx.res().res.body().clear();
-        ctx.res().res.prepare_payload();
+        ctx.res().res.set_body("");
         return;
       }
 

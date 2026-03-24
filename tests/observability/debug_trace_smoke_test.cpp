@@ -14,32 +14,33 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/observability/debug_trace.hpp>
 
 using namespace vix::middleware;
 using namespace vix::middleware::observability;
 
-static vix::vhttp::RawRequest make_req(boost::beast::http::verb method, std::string target)
+static vix::vhttp::Request make_req(std::string method, std::string target)
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(headers),
+      "");
 }
 
 static void test_debug_trace_hooks_logs_two_lines()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/dbg");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/dbg");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -47,14 +48,13 @@ static void test_debug_trace_hooks_logs_two_lines()
   auto sink = std::make_shared<InMemoryDebugTrace>();
   p.set_hooks(debug_trace_hooks(sink));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
   assert(sink->lines.size() >= 2);
-  // basic sanity
   assert(sink->lines.front().find("begin") != std::string::npos);
   assert(sink->lines.back().find("end") != std::string::npos);
 
@@ -63,12 +63,8 @@ static void test_debug_trace_hooks_logs_two_lines()
 
 static void test_debug_trace_mw_logs_two_lines()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/dbg2");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/dbg2");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -76,10 +72,10 @@ static void test_debug_trace_mw_logs_two_lines()
   auto sink = std::make_shared<InMemoryDebugTrace>();
   p.use(debug_trace_mw(sink));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.status(201).text("CREATED"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.status(201).text("CREATED"); });
 
-  assert(res.result_int() == 201);
+  assert(res.status() == 201);
   assert(res.body() == "CREATED");
 
   assert(sink->lines.size() >= 2);

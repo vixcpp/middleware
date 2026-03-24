@@ -11,48 +11,49 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/performance/compression.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(
+static vix::vhttp::Request make_req(
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, target, 11};
-  req.set(http::field::host, "localhost");
-  for (auto &kv : headers)
-    req.set(kv.first, kv.second);
-  return req;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
+
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request("GET", std::move(target), std::move(map), "");
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
   HttpPipeline p;
   p.use(performance::compression({.min_size = 8}));
 
-  auto raw = make_req("/x", {{"Accept-Encoding", "gzip, br"}});
-  http::response<http::string_body> res;
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("/x", {{"Accept-Encoding", "gzip, br"}});
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text(std::string(20, 'a')); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text(std::string(20, 'a')); });
 
-  assert(res.result_int() == 200);
-  assert(!std::string(res["Vary"]).empty());
+  assert(res.status() == 200);
+  assert(!res.header("Vary").empty());
 
 #ifndef NDEBUG
-  assert(std::string(res["X-Vix-Compression"]) == "planned");
+  assert(res.header("X-Vix-Compression") == "planned");
 #endif
 
   std::cout << "[OK] compression smoke\n";

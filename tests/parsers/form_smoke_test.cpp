@@ -12,44 +12,45 @@
  */
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
-
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/parsers/form.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string body, std::string ct)
+static vix::vhttp::Request make_req(std::string body, std::string ct)
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::post, "/form", 11};
-  req.set(http::field::host, "localhost");
-  req.set(http::field::content_type, ct);
-  req.body() = std::move(body);
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+  headers.emplace("Content-Type", std::move(ct));
+
+  return vix::vhttp::Request(
+      "POST",
+      "/form",
+      std::move(headers),
+      std::move(body));
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req("a=1&b=hello+world", "application/x-www-form-urlencoded");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("a=1&b=hello+world", "application/x-www-form-urlencoded");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::parsers::form());
 
-  p.run(req, w, [&](Request &, Response &)
+  p.run(req, w, [&](Request &request, Response &resp)
         {
-              auto &fb = req.state<vix::middleware::parsers::FormBody>();
-              w.ok().text(fb.fields["b"]); });
+          auto &fb = request.state<vix::middleware::parsers::FormBody>();
+          resp.ok().text(fb.fields["b"]); });
 
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "hello world");
 
   std::cout << "[OK] form parser\n";

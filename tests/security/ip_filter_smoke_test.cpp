@@ -12,31 +12,30 @@
  */
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <utility>
 
-#include <boost/beast/http.hpp>
+#include <vix/http/Request.hpp>
+#include <vix/http/Response.hpp>
+#include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/security/ip_filter.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(std::string ip)
+static vix::vhttp::Request make_req(std::string ip)
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/x", 11};
-  req.set(http::field::host, "localhost");
-  req.set("X-Forwarded-For", ip);
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap headers;
+  headers.emplace("Host", "localhost");
+  headers.emplace("X-Forwarded-For", std::move(ip));
+
+  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req("1.2.3.4");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("1.2.3.4");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   vix::middleware::security::IpFilterOptions opt;
@@ -46,11 +45,13 @@ int main()
   p.use(vix::middleware::security::ip_filter(opt));
 
   int final_calls = 0;
-  p.run(req, w, [&](Request &, Response &)
-        { final_calls++; w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        {
+          final_calls++;
+          resp.ok().text("OK"); });
 
   assert(final_calls == 0);
-  assert(res.result_int() == 403);
+  assert(res.status() == 403);
 
   std::cout << "[OK] ip_filter deny\n";
   return 0;

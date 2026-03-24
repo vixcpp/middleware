@@ -11,33 +11,39 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
+#include <stdexcept>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <utility>
 
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/middleware.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(boost::beast::http::verb method, std::string target)
+static vix::vhttp::Request make_req(
+    std::string method,
+    std::string target,
+    std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  req.prepare_payload();
-  return req;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
+
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(map),
+      "");
 }
 
 static void test_hooks_begin_end_called()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/hooks");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/hooks");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -53,19 +59,19 @@ static void test_hooks_begin_end_called()
   { end++; };
   h.on_error = [&](Context &, const Error &)
   { err++; };
+
   p.set_hooks(std::move(h));
 
-  // trivial middleware
   p.use([](Context &, Next next)
         { next(); });
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
   assert(begin == 1);
   assert(end == 1);
   assert(err == 0);
-  assert(res.result_int() == 200);
+  assert(res.status() == 200);
   assert(res.body() == "OK");
 
   std::cout << "[OK] hooks begin/end called\n";
@@ -73,12 +79,8 @@ static void test_hooks_begin_end_called()
 
 static void test_hooks_error_called_when_exception_escapes()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/boom");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/boom");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -94,7 +96,11 @@ static void test_hooks_error_called_when_exception_escapes()
   h.on_end = [&](Context &)
   { end++; };
   h.on_error = [&](Context &, const Error &e)
-  { err++; last = e; };
+  {
+    err++;
+    last = e;
+  };
+
   p.set_hooks(std::move(h));
 
   bool threw = false;
@@ -110,7 +116,7 @@ static void test_hooks_error_called_when_exception_escapes()
 
   assert(threw == true);
   assert(begin == 1);
-  assert(end == 0); // because exception escaped
+  assert(end == 0);
   assert(err == 1);
   assert(last.status == 500);
   assert(last.code == "unhandled_exception");

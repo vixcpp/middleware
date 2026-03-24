@@ -13,7 +13,6 @@
 #include <cassert>
 #include <iostream>
 
-#include <boost/beast/http.hpp>
 #include <nlohmann/json.hpp>
 
 #include <vix/middleware/pipeline.hpp>
@@ -21,18 +20,17 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req()
+static vix::vhttp::Request make_req()
 {
-  namespace http = boost::beast::http;
-  vix::vhttp::RawRequest req{http::verb::get, "/admin", 11};
-  req.set(http::field::host, "localhost");
+  vix::vhttp::Request req;
+  req.set_method("GET");
+  req.set_target("/admin");
+  req.set_header("Host", "localhost");
   return req;
 }
 
 int main()
 {
-  namespace http = boost::beast::http;
-
   HttpPipeline p;
 
   p.use(auth::rbac_context());
@@ -40,9 +38,8 @@ int main()
   p.use(auth::require_perm("products:write"));
 
   {
-    auto raw = make_req();
-    http::response<http::string_body> res;
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req();
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
     auth::JwtClaims claims;
@@ -54,17 +51,16 @@ int main()
 
     req.emplace_state<auth::JwtClaims>(std::move(claims));
 
-    p.run(req, w, [&](Request &, Response &)
-          { w.ok().text("OK"); });
+    p.run(req, w, [&](Request &, Response &resp)
+          { resp.ok().text("OK"); });
 
-    assert(res.result_int() == 200);
+    assert(res.status() == 200);
     assert(res.body() == "OK");
   }
 
   {
-    auto raw = make_req();
-    http::response<http::string_body> res;
-    vix::vhttp::Request req(raw, {});
+    auto req = make_req();
+    vix::vhttp::Response res;
     vix::vhttp::ResponseWrapper w(res);
 
     auth::JwtClaims claims;
@@ -72,14 +68,14 @@ int main()
     claims.payload = nlohmann::json{
         {"sub", "user123"},
         {"roles", {"admin"}},
-        {"perms", {"orders:read"}}}; // missing products:write
+        {"perms", {"orders:read"}}};
 
     req.emplace_state<auth::JwtClaims>(std::move(claims));
 
-    p.run(req, w, [&](Request &, Response &)
-          { w.ok().text("SHOULD NOT"); });
+    p.run(req, w, [&](Request &, Response &resp)
+          { resp.ok().text("SHOULD NOT"); });
 
-    assert(res.result_int() == 403);
+    assert(res.status() == 403);
   }
 
   std::cout << "[OK] rbac (roles + perms)\n";

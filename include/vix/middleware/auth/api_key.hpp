@@ -60,12 +60,8 @@ namespace vix::middleware::auth
         return v;
     }
 
-    if (!opt.query_param.empty())
-    {
-      auto it = req.query().find(opt.query_param);
-      if (it != req.query().end())
-        return it->second;
-    }
+    if (!opt.query_param.empty() && req.has_query(opt.query_param))
+      return req.query_value(opt.query_param);
 
     return {};
   }

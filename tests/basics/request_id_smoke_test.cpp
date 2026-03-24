@@ -11,55 +11,56 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
-
-#include <boost/beast/http.hpp>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
 
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/basics/request_id.hpp>
 
 using namespace vix::middleware;
 
-static vix::vhttp::RawRequest make_req(
-    boost::beast::http::verb method,
+static vix::vhttp::Request make_req(
+    std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  namespace http = boost::beast::http;
+  vix::vhttp::Request::HeaderMap map;
+  map.emplace("Host", "localhost");
 
-  vix::vhttp::RawRequest req{method, target, 11};
-  req.set(http::field::host, "localhost");
-  for (auto &kv : headers)
-    req.set(kv.first, kv.second);
-  req.prepare_payload();
-  return req;
+  for (const auto &kv : headers)
+    map.emplace(kv.first, kv.second);
+
+  return vix::vhttp::Request(
+      std::move(method),
+      std::move(target),
+      std::move(map),
+      "");
+}
+
+static std::string header_value(const vix::vhttp::Response &res, std::string_view name)
+{
+  return res.header(name);
 }
 
 static void test_generates_and_sets_header()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/x");
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/x");
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::basics::request_id());
 
-  p.run(req, w, [&](Request &, Response &)
-        {
-        // final handler just returns OK
-        w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  // header must exist
-  const auto it = res.find("x-request-id");
-  assert(it != res.end());
-  assert(!std::string(it->value()).empty());
+  const std::string out = header_value(res, "x-request-id");
+  assert(!out.empty());
 
-  // typed state must exist
   auto *rid = req.try_state<vix::middleware::basics::RequestId>();
   assert(rid != nullptr);
   assert(!rid->value.empty());
@@ -69,12 +70,8 @@ static void test_generates_and_sets_header()
 
 static void test_accepts_incoming_header()
 {
-  namespace http = boost::beast::http;
-
-  auto raw = make_req(http::verb::get, "/x", {{"x-request-id", "abcDEF-1234"}}); // valid
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/x", {{"x-request-id", "abcDEF-1234"}});
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -86,12 +83,11 @@ static void test_accepts_incoming_header()
 
   p.use(vix::middleware::basics::request_id(opt));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  const auto it = res.find("x-request-id");
-  assert(it != res.end());
-  assert(std::string(it->value()) == "abcDEF-1234");
+  const std::string out = header_value(res, "x-request-id");
+  assert(out == "abcDEF-1234");
 
   auto *rid = req.try_state<vix::middleware::basics::RequestId>();
   assert(rid != nullptr);
@@ -102,13 +98,8 @@ static void test_accepts_incoming_header()
 
 static void test_rejects_bad_incoming_and_generates()
 {
-  namespace http = boost::beast::http;
-
-  // Too short + invalid char
-  auto raw = make_req(http::verb::get, "/x", {{"x-request-id", "!!"}}); // rejected
-  http::response<http::string_body> res;
-
-  vix::vhttp::Request req(raw, {});
+  auto req = make_req("GET", "/x", {{"x-request-id", "!!"}});
+  vix::vhttp::Response res;
   vix::vhttp::ResponseWrapper w(res);
 
   HttpPipeline p;
@@ -119,12 +110,10 @@ static void test_rejects_bad_incoming_and_generates()
 
   p.use(vix::middleware::basics::request_id(opt));
 
-  p.run(req, w, [&](Request &, Response &)
-        { w.ok().text("OK"); });
+  p.run(req, w, [&](Request &, Response &resp)
+        { resp.ok().text("OK"); });
 
-  const auto it = res.find("x-request-id");
-  assert(it != res.end());
-  const std::string out = std::string(it->value());
+  const std::string out = header_value(res, "x-request-id");
   assert(!out.empty());
   assert(out != "!!");
 

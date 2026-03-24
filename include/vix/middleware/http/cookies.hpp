@@ -13,14 +13,11 @@
 #ifndef VIX_MIDDLEWARE_HTTP_COOKIES_HPP
 #define VIX_MIDDLEWARE_HTTP_COOKIES_HPP
 
+#include <cctype>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <optional>
-#include <cctype>
-
-#include <boost/beast/core/string.hpp>
-#include <boost/beast/http/field.hpp>
 
 #include <vix/middleware/middleware.hpp>
 
@@ -36,42 +33,45 @@ namespace vix::middleware::cookies
 
     std::string path{"/"};
     std::string domain{};
-    int max_age{-1}; // -1 => omit
+    int max_age{-1};
     bool http_only{true};
     bool secure{false};
-    std::string same_site{"Lax"}; // Lax | Strict | None
+    std::string same_site{"Lax"};
   };
 
   /** @brief Trim ASCII whitespace from both ends. */
   inline std::string trim(std::string_view s)
   {
-    size_t b = 0;
+    std::size_t b = 0;
     while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b])))
-      b++;
-    size_t e = s.size();
+      ++b;
+
+    std::size_t e = s.size();
     while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))
-      e--;
+      --e;
+
     return std::string(s.substr(b, e - b));
   }
 
   /**
    * @brief Parse a Cookie header into key/value pairs.
    */
-  inline std::unordered_map<std::string, std::string> parse_cookie_header(std::string_view header)
+  inline std::unordered_map<std::string, std::string>
+  parse_cookie_header(std::string_view header)
   {
     std::unordered_map<std::string, std::string> out;
 
-    size_t i = 0;
+    std::size_t i = 0;
     while (i < header.size())
     {
-      size_t semi = header.find(';', i);
+      std::size_t semi = header.find(';', i);
       if (semi == std::string_view::npos)
         semi = header.size();
 
-      auto part = header.substr(i, semi - i);
+      const auto part = header.substr(i, semi - i);
       i = (semi < header.size()) ? semi + 1 : semi;
 
-      auto eq = part.find('=');
+      const std::size_t eq = part.find('=');
       if (eq == std::string_view::npos)
         continue;
 
@@ -88,18 +88,21 @@ namespace vix::middleware::cookies
   /**
    * @brief Parse cookies from a request.
    */
-  inline std::unordered_map<std::string, std::string> parse(const vix::middleware::Request &req)
+  inline std::unordered_map<std::string, std::string>
+  parse(const vix::middleware::Request &req)
   {
     const std::string h = req.header("cookie");
     if (h.empty())
       return {};
+
     return parse_cookie_header(h);
   }
 
   /**
    * @brief Get a single cookie value by name.
    */
-  inline std::optional<std::string> get(const vix::middleware::Request &req, std::string_view name)
+  inline std::optional<std::string>
+  get(const vix::middleware::Request &req, std::string_view name)
   {
     const std::string h = req.header("cookie");
     if (h.empty())
@@ -109,6 +112,7 @@ namespace vix::middleware::cookies
     auto it = m.find(std::string(name));
     if (it == m.end())
       return std::nullopt;
+
     return it->second;
   }
 
@@ -129,11 +133,13 @@ namespace vix::middleware::cookies
       s += "; Path=";
       s += c.path;
     }
+
     if (!c.domain.empty())
     {
       s += "; Domain=";
       s += c.domain;
     }
+
     if (c.max_age >= 0)
     {
       s += "; Max-Age=";
@@ -142,6 +148,7 @@ namespace vix::middleware::cookies
 
     if (c.http_only)
       s += "; HttpOnly";
+
     if (c.secure)
       s += "; Secure";
 
@@ -155,17 +162,16 @@ namespace vix::middleware::cookies
   }
 
   /**
-   * @brief Add a Set-Cookie header to the response.
+   * @brief Add or replace a Set-Cookie header on the response.
+   *
+   * Note:
+   * The current native Response header map is key -> single value, so repeated
+   * Set-Cookie headers are not preserved yet. This matches the current Response
+   * API and keeps the middleware fully Boost-free.
    */
   inline void set(vix::middleware::Response &res, const Cookie &c)
   {
-    using boost::beast::string_view;
-
-    const std::string v = build_set_cookie_value(c);
-
-    res.res.insert(
-        string_view{"Set-Cookie", 10},
-        string_view{v.data(), v.size()});
+    res.header("Set-Cookie", build_set_cookie_value(c));
   }
 
 } // namespace vix::middleware::cookies
