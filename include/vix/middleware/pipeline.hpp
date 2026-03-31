@@ -24,6 +24,7 @@
 #include <vix/middleware/observability/tracing.hpp>
 #include <vix/middleware/observability/metrics.hpp>
 #include <vix/middleware/observability/debug_trace.hpp>
+#include <vix/utils/Env.hpp>
 
 namespace vix::middleware
 {
@@ -78,7 +79,7 @@ namespace vix::middleware
      */
     static bool env_is_dev()
     {
-      const char *v = std::getenv("VIX_ENV");
+      const char *v = vix::utils::vix_getenv("VIX_ENV");
       if (!v || !*v)
         return false;
 
