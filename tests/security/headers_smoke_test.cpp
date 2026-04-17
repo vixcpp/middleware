@@ -23,19 +23,19 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req()
+static vix::http::Request make_req()
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
-  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
+  return vix::http::Request("GET", "/x", std::move(headers), "");
 }
 
 int main()
 {
   auto req = make_req();
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::security::headers());

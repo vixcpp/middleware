@@ -21,18 +21,18 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
@@ -47,8 +47,8 @@ struct FooState
 static void test_context_state_roundtrip()
 {
   auto req = make_req("GET", "/ctx");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -73,8 +73,8 @@ static void test_context_state_roundtrip()
 static void test_context_send_error()
 {
   auto req = make_req("GET", "/ctx-error");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 

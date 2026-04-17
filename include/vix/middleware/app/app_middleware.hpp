@@ -56,8 +56,8 @@ namespace vix::middleware::app
   inline vix::App::Middleware chain(std::vector<vix::App::Middleware> mws)
   {
     return [mws = std::move(mws)](
-               vix::vhttp::Request &req,
-               vix::vhttp::ResponseWrapper &res,
+               vix::http::Request &req,
+               vix::http::ResponseWrapper &res,
                vix::App::Next next) mutable
     {
       auto i = std::make_shared<std::size_t>(0);

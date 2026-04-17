@@ -20,9 +20,9 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req()
+static vix::http::Request make_req()
 {
-  vix::vhttp::Request req;
+  vix::http::Request req;
   req.set_method("GET");
   req.set_target("/admin");
   req.set_header("Host", "localhost");
@@ -39,8 +39,8 @@ int main()
 
   {
     auto req = make_req();
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     auth::JwtClaims claims;
     claims.subject = "user123";
@@ -60,8 +60,8 @@ int main()
 
   {
     auto req = make_req();
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     auth::JwtClaims claims;
     claims.subject = "user123";

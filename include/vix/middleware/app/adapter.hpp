@@ -31,8 +31,8 @@ namespace vix::middleware::app
   inline vix::App::Middleware adapt(vix::middleware::HttpMiddleware inner)
   {
     return [inner = std::move(inner)](
-               vix::vhttp::Request &req,
-               vix::vhttp::ResponseWrapper &res,
+               vix::http::Request &req,
+               vix::http::ResponseWrapper &res,
                vix::App::Next next) mutable
     {
       vix::mw::Next mw_next(std::move(next));
@@ -49,8 +49,8 @@ namespace vix::middleware::app
   {
     return [inner = std::move(inner),
             services = vix::mw::Services{}](
-               vix::vhttp::Request &req,
-               vix::vhttp::ResponseWrapper &res,
+               vix::http::Request &req,
+               vix::http::ResponseWrapper &res,
                vix::App::Next next) mutable
     {
       vix::mw::Context ctx(req, res, services);
@@ -71,8 +71,8 @@ namespace vix::middleware::app
   {
     return [pred = std::move(pred),
             mw = std::move(mw)](
-               vix::vhttp::Request &req,
-               vix::vhttp::ResponseWrapper &res,
+               vix::http::Request &req,
+               vix::http::ResponseWrapper &res,
                vix::App::Next next) mutable
     {
       if (!pred(req))
@@ -90,7 +90,7 @@ namespace vix::middleware::app
   inline vix::App::Middleware protect_path(std::string path, vix::App::Middleware mw)
   {
     return when(
-        [path = std::move(path)](const vix::vhttp::Request &req)
+        [path = std::move(path)](const vix::http::Request &req)
         {
           return req.path() == path;
         },
@@ -103,7 +103,7 @@ namespace vix::middleware::app
   inline vix::App::Middleware protect_prefix_mw(std::string prefix, vix::App::Middleware mw)
   {
     return when(
-        [prefix = std::move(prefix)](const vix::vhttp::Request &req)
+        [prefix = std::move(prefix)](const vix::http::Request &req)
         {
           return req.path().rfind(prefix, 0) == 0;
         },

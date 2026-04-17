@@ -32,19 +32,19 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {},
     std::string body = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
@@ -59,7 +59,7 @@ static std::shared_ptr<vix::cache::Cache> make_cache()
   return std::make_shared<vix::cache::Cache>(policy, store);
 }
 
-static std::string compute_key_for(const vix::vhttp::Request &req,
+static std::string compute_key_for(const vix::http::Request &req,
                                    const HttpCacheOptions &opt)
 {
   std::unordered_map<std::string, std::string> headers = req.headers();
@@ -78,8 +78,8 @@ static void test_cache_hit_serves_response()
   std::shared_ptr<vix::cache::Cache> cache = make_cache();
 
   auto req = make_req("GET", "/api/users?page=1");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
   auto key = compute_key_for(req, opt);
@@ -111,8 +111,8 @@ static void test_cache_miss_then_put_on_200()
   std::shared_ptr<vix::cache::Cache> cache = make_cache();
 
   auto req = make_req("GET", "/api/products?limit=10");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
   auto key = compute_key_for(req, opt);
@@ -144,8 +144,8 @@ static void test_bypass_header_skips_cache()
       "GET",
       "/api/x",
       {{"x-vix-cache", "bypass"}});
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpCacheOptions opt{};
   opt.allow_bypass = true;

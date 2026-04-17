@@ -85,7 +85,7 @@ namespace vix::middleware::app
     if (cfg.only_get)
     {
       mw = vix::middleware::app::when(
-          [](const vix::vhttp::Request &req)
+          [](const vix::http::Request &req)
           { return req.method() == "GET"; },
           std::move(mw));
     }

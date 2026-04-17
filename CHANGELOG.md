@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ## [2.0.0] - 2026-03-24
 
-- Migrated all middleware to the new vix::vhttp HTTP layer
+- Migrated all middleware to the new vix::http HTTP layer
 - Removed all dependencies on Boost.Beast-based APIs
 - Updated middleware interface to use Request / ResponseWrapper
 - Refactored auth, performance, observability and http modules
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Breaking changes:
 - Old Beast-based Request/Response APIs removed
 - Middleware implementations must use ResponseWrapper
-- Header/body/status access now uses vix::vhttp primitives
+- Header/body/status access now uses vix::http primitives
 
 This release aligns middleware with Vix v2 core
 and completes the transition to a fully native HTTP stack.

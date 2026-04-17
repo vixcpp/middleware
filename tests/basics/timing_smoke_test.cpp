@@ -24,19 +24,19 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string method, std::string target)
+static vix::http::Request make_req(std::string method, std::string target)
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
       "");
 }
 
-static std::string header_value(const vix::vhttp::Response &res, std::string_view name)
+static std::string header_value(const vix::http::Response &res, std::string_view name)
 {
   return res.header(name);
 }
@@ -44,8 +44,8 @@ static std::string header_value(const vix::vhttp::Response &res, std::string_vie
 static void test_timing_sets_headers_and_state()
 {
   auto req = make_req("GET", "/slow");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::basics::timing({}));
@@ -74,8 +74,8 @@ static void test_timing_sets_headers_and_state()
 static void test_timing_can_be_disabled()
 {
   auto req = make_req("GET", "/x");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   vix::middleware::basics::TimingOptions opt;
   opt.set_x_response_time = false;

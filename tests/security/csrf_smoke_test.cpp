@@ -23,9 +23,9 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(bool ok)
+static vix::http::Request make_req(bool ok)
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
   if (ok)
@@ -39,15 +39,15 @@ static vix::vhttp::Request make_req(bool ok)
     headers.emplace("X-CSRF-Token", "nope");
   }
 
-  return vix::vhttp::Request("POST", "/x", std::move(headers), "x=1");
+  return vix::http::Request("POST", "/x", std::move(headers), "x=1");
 }
 
 int main()
 {
   {
     auto req = make_req(false);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     HttpPipeline p;
     p.use(vix::middleware::security::csrf());
@@ -64,8 +64,8 @@ int main()
 
   {
     auto req = make_req(true);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     HttpPipeline p;
     p.use(vix::middleware::security::csrf());

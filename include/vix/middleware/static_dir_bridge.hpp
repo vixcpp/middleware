@@ -50,8 +50,8 @@ namespace vix::middleware
 
           vix::App::Middleware appmw =
               [httpmw = std::move(httpmw)](
-                  vix::vhttp::Request &req,
-                  vix::vhttp::ResponseWrapper &res,
+                  vix::http::Request &req,
+                  vix::http::ResponseWrapper &res,
                   vix::App::Next next) mutable
           {
             httpmw(req, res, vix::mw::Next([n = std::move(next)]() mutable

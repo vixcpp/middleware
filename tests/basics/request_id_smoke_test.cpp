@@ -23,25 +23,25 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
       "");
 }
 
-static std::string header_value(const vix::vhttp::Response &res, std::string_view name)
+static std::string header_value(const vix::http::Response &res, std::string_view name)
 {
   return res.header(name);
 }
@@ -49,8 +49,8 @@ static std::string header_value(const vix::vhttp::Response &res, std::string_vie
 static void test_generates_and_sets_header()
 {
   auto req = make_req("GET", "/x");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::basics::request_id());
@@ -71,8 +71,8 @@ static void test_generates_and_sets_header()
 static void test_accepts_incoming_header()
 {
   auto req = make_req("GET", "/x", {{"x-request-id", "abcDEF-1234"}});
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -99,8 +99,8 @@ static void test_accepts_incoming_header()
 static void test_rejects_bad_incoming_and_generates()
 {
   auto req = make_req("GET", "/x", {{"x-request-id", "!!"}});
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 

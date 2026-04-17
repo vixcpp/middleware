@@ -23,21 +23,21 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_preflight()
+static vix::http::Request make_preflight()
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
   headers.emplace("Origin", "https://example.com");
   headers.emplace("Access-Control-Request-Method", "POST");
 
-  return vix::vhttp::Request("OPTIONS", "/api", std::move(headers), "");
+  return vix::http::Request("OPTIONS", "/api", std::move(headers), "");
 }
 
 int main()
 {
   auto req = make_preflight();
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   vix::middleware::security::CorsOptions opt;
   opt.allowed_origins = {"https://example.com"};

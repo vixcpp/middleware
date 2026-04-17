@@ -21,11 +21,11 @@
 #include <vix/http/ResponseWrapper.hpp>
 #include <vix/middleware/http/cookies.hpp>
 
-static vix::vhttp::Request make_req_with_cookie(
+static vix::http::Request make_req_with_cookie(
     std::string cookie_header,
     std::initializer_list<std::pair<std::string, std::string>> extra_headers = {})
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
   if (!cookie_header.empty())
@@ -34,10 +34,10 @@ static vix::vhttp::Request make_req_with_cookie(
   for (const auto &kv : extra_headers)
     headers.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
+  return vix::http::Request("GET", "/x", std::move(headers), "");
 }
 
-static std::string get_header_value(const vix::vhttp::Response &res, std::string_view name)
+static std::string get_header_value(const vix::http::Response &res, std::string_view name)
 {
   return res.header(name);
 }
@@ -77,8 +77,8 @@ int main()
 
   // 3) set-cookie formatting
   {
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     vix::middleware::cookies::Cookie c;
     c.name = "vix.sid";
@@ -104,8 +104,8 @@ int main()
 
   // 4) current API replaces previous Set-Cookie value
   {
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     vix::middleware::cookies::Cookie a;
     a.name = "a";

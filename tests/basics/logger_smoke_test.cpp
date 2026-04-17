@@ -25,18 +25,18 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
@@ -72,8 +72,8 @@ struct TestLogger final : vix::middleware::basics::ILogger
 static void test_logger_info_for_200_text()
 {
   auto req = make_req("GET", "/ok");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -106,8 +106,8 @@ static void test_logger_info_for_200_text()
 static void test_logger_warn_for_404_json()
 {
   auto req = make_req("GET", "/missing");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -138,8 +138,8 @@ static void test_logger_warn_for_404_json()
 static void test_logger_error_for_500()
 {
   auto req = make_req("GET", "/err");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 

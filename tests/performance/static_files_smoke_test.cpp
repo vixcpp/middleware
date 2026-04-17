@@ -24,17 +24,17 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request("GET", std::move(target), std::move(map), "");
+  return vix::http::Request("GET", std::move(target), std::move(map), "");
 }
 
 int main()
@@ -46,8 +46,8 @@ int main()
 
   {
     auto req = make_req("/x");
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &resp)
           { resp.ok().text("Hello"); });
@@ -59,8 +59,8 @@ int main()
 
   {
     auto req = make_req("/x", {{"If-None-Match", etag_value}});
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &resp)
           { resp.ok().text("Hello"); });

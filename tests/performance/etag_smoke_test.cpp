@@ -24,12 +24,12 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string target)
+static vix::http::Request make_req(std::string target)
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
-  return vix::vhttp::Request("GET", std::move(target), std::move(headers), "");
+  return vix::http::Request("GET", std::move(target), std::move(headers), "");
 }
 
 int main()
@@ -45,8 +45,8 @@ int main()
   p.use(performance::static_files(root, {.mount = "/", .index_file = "index.html"}));
 
   auto req = make_req("/");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   p.run(req, w, [&](Request &, Response &resp)
         { resp.status(404).text("nope"); });

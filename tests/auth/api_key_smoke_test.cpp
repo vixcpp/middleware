@@ -20,9 +20,9 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(bool with_key)
+static vix::http::Request make_req(bool with_key)
 {
-  vix::vhttp::Request req;
+  vix::http::Request req;
   req.set_method("GET");
   req.set_target("/secure");
   req.set_header("Host", "localhost");
@@ -44,8 +44,8 @@ int main()
 
   {
     auto req = make_req(true);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &r, Response &resp)
           {
@@ -58,8 +58,8 @@ int main()
 
   {
     auto req = make_req(false);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &) {});
 

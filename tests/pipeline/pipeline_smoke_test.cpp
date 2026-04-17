@@ -23,12 +23,12 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string target = "/")
+static vix::http::Request make_req(std::string target = "/")
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       "GET",
       std::move(target),
       std::move(headers),
@@ -38,8 +38,8 @@ static vix::vhttp::Request make_req(std::string target = "/")
 static void test_pipeline_order_and_final()
 {
   auto req = make_req("/x");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -72,8 +72,8 @@ static void test_pipeline_order_and_final()
 static void test_pipeline_short_circuit()
 {
   auto req = make_req("/short");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   int called = 0;

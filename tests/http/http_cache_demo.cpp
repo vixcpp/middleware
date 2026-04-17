@@ -36,12 +36,12 @@ int main()
   HttpCacheOptions opt{};
   auto cache_mw = http_cache(cache, opt);
 
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
-  vix::vhttp::Request req("GET", "/api/ping", std::move(headers), "");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Request req("GET", "/api/ping", std::move(headers), "");
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   cache_mw(req, w, [&]()
            {

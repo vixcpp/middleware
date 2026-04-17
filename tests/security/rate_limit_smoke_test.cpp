@@ -24,13 +24,13 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string target = "/")
+static vix::http::Request make_req(std::string target = "/")
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
   headers.emplace("x-forwarded-for", "1.2.3.4");
 
-  return vix::vhttp::Request("GET", std::move(target), std::move(headers), "");
+  return vix::http::Request("GET", std::move(target), std::move(headers), "");
 }
 
 static void test_rate_limit_allows_then_blocks()
@@ -47,17 +47,17 @@ static void test_rate_limit_allows_then_blocks()
 
   p.use(vix::middleware::security::rate_limit(opt));
 
-  auto run_once = [&](vix::vhttp::Response &res)
+  auto run_once = [&](vix::http::Response &res)
   {
     auto req = make_req("/api/x");
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &resp)
           { resp.ok().text("OK"); });
   };
 
   {
-    vix::vhttp::Response res;
+    vix::http::Response res;
     run_once(res);
     assert(res.status() == 200);
     assert(res.body() == "OK");
@@ -66,14 +66,14 @@ static void test_rate_limit_allows_then_blocks()
   }
 
   {
-    vix::vhttp::Response res;
+    vix::http::Response res;
     run_once(res);
     assert(res.status() == 200);
     assert(res.body() == "OK");
   }
 
   {
-    vix::vhttp::Response res;
+    vix::http::Response res;
     run_once(res);
 
     assert(res.status() == 429);

@@ -23,26 +23,26 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::string body = "",
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
       std::move(body));
 }
 
-static bool has_header(const vix::vhttp::Response &res, std::string_view name)
+static bool has_header(const vix::http::Response &res, std::string_view name)
 {
   return res.has_header(name);
 }
@@ -50,8 +50,8 @@ static bool has_header(const vix::vhttp::Response &res, std::string_view name)
 static void test_rejects_large_body()
 {
   auto req = make_req("POST", "/upload", std::string(20, 'x'));
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::basics::body_limit({.max_bytes = 10}));
@@ -72,8 +72,8 @@ static void test_rejects_large_body()
 static void test_allows_small_body()
 {
   auto req = make_req("POST", "/upload", "hello");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::basics::body_limit({.max_bytes = 10}));

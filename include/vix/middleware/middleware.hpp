@@ -25,8 +25,8 @@
 
 namespace vix::middleware
 {
-  using Request = vix::vhttp::Request;
-  using Response = vix::vhttp::ResponseWrapper;
+  using Request = vix::http::Request;
+  using Response = vix::http::ResponseWrapper;
   using NextFn = vix::mw::NextFn;
   using Next = vix::mw::Next;
   using NextOnce = vix::mw::NextOnce;

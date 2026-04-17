@@ -23,13 +23,13 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string body, std::string ct)
+static vix::http::Request make_req(std::string body, std::string ct)
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
   headers.emplace("Content-Type", std::move(ct));
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       "POST",
       "/json",
       std::move(headers),
@@ -39,8 +39,8 @@ static vix::vhttp::Request make_req(std::string body, std::string ct)
 int main()
 {
   auto req = make_req(R"({"x":1})", "application/json; charset=utf-8");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(vix::middleware::parsers::json());

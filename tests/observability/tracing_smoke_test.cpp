@@ -25,18 +25,18 @@
 using namespace vix::middleware;
 using namespace vix::middleware::observability;
 
-static vix::vhttp::Request make_req(
+static vix::http::Request make_req(
     std::string method,
     std::string target,
     std::initializer_list<std::pair<std::string, std::string>> headers = {})
 {
-  vix::vhttp::Request::HeaderMap map;
+  vix::http::Request::HeaderMap map;
   map.emplace("Host", "localhost");
 
   for (const auto &kv : headers)
     map.emplace(kv.first, kv.second);
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(map),
@@ -46,8 +46,8 @@ static vix::vhttp::Request make_req(
 static void test_tracing_hooks_generates_and_sets_headers()
 {
   auto req = make_req("GET", "/t");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.set_hooks(tracing_hooks());
@@ -68,8 +68,8 @@ static void test_tracing_mw_accepts_incoming_trace()
 {
   const std::string incoming_trace = "0123456789abcdef0123456789abcdef";
   auto req = make_req("GET", "/t2", {{"x-trace-id", incoming_trace}});
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
   p.use(tracing_mw());

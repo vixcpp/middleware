@@ -92,7 +92,7 @@ namespace vix::middleware
    * @brief Convert response headers to a key/value map.
    */
   inline std::unordered_map<std::string, std::string> response_headers_map(
-      const vix::vhttp::Response &res)
+      const vix::http::Response &res)
   {
     std::unordered_map<std::string, std::string> h;
 

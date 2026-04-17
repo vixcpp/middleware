@@ -90,9 +90,9 @@ static std::string make_jwt_hs256(const nlohmann::json &payload,
   return signing + "." + sig;
 }
 
-static vix::vhttp::Request make_req_with_bearer(const std::string &token)
+static vix::http::Request make_req_with_bearer(const std::string &token)
 {
-  vix::vhttp::Request req;
+  vix::http::Request req;
   req.set_method("GET");
   req.set_target("/secure");
   req.set_header("Host", "localhost");
@@ -119,8 +119,8 @@ int main()
     const std::string token = make_jwt_hs256(payload, secret);
 
     auto req = make_req_with_bearer(token);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &r, Response &resp)
           {
@@ -142,8 +142,8 @@ int main()
     const std::string token = make_jwt_hs256(payload, "wrong_secret");
 
     auto req = make_req_with_bearer(token);
-    vix::vhttp::Response res;
-    vix::vhttp::ResponseWrapper w(res);
+    vix::http::Response res;
+    vix::http::ResponseWrapper w(res);
 
     p.run(req, w, [&](Request &, Response &resp)
           { resp.ok().text("SHOULD NOT"); });

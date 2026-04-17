@@ -25,12 +25,12 @@
 using namespace vix::middleware;
 using namespace vix::middleware::observability;
 
-static vix::vhttp::Request make_req(std::string method, std::string target)
+static vix::http::Request make_req(std::string method, std::string target)
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
 
-  return vix::vhttp::Request(
+  return vix::http::Request(
       std::move(method),
       std::move(target),
       std::move(headers),
@@ -40,8 +40,8 @@ static vix::vhttp::Request make_req(std::string method, std::string target)
 static void test_debug_trace_hooks_logs_two_lines()
 {
   auto req = make_req("GET", "/dbg");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 
@@ -64,8 +64,8 @@ static void test_debug_trace_hooks_logs_two_lines()
 static void test_debug_trace_mw_logs_two_lines()
 {
   auto req = make_req("GET", "/dbg2");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   HttpPipeline p;
 

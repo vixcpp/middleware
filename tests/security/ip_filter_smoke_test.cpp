@@ -23,20 +23,20 @@
 
 using namespace vix::middleware;
 
-static vix::vhttp::Request make_req(std::string ip)
+static vix::http::Request make_req(std::string ip)
 {
-  vix::vhttp::Request::HeaderMap headers;
+  vix::http::Request::HeaderMap headers;
   headers.emplace("Host", "localhost");
   headers.emplace("X-Forwarded-For", std::move(ip));
 
-  return vix::vhttp::Request("GET", "/x", std::move(headers), "");
+  return vix::http::Request("GET", "/x", std::move(headers), "");
 }
 
 int main()
 {
   auto req = make_req("1.2.3.4");
-  vix::vhttp::Response res;
-  vix::vhttp::ResponseWrapper w(res);
+  vix::http::Response res;
+  vix::http::ResponseWrapper w(res);
 
   vix::middleware::security::IpFilterOptions opt;
   opt.deny = {"1.2.3.4"};
