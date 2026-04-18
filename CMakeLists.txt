@@ -303,10 +303,10 @@ if (MIDDLEWARE_SOURCES)
   )
 
   if (TARGET vix_warnings)
-    target_link_libraries(vix_middleware PUBLIC vix_warnings)
+    target_link_libraries(vix_middleware PRIVATE vix_warnings)
 
     if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
-      target_link_libraries(vix_middleware PUBLIC vix_sanitizers)
+      target_link_libraries(vix_middleware PRIVATE vix_sanitizers)
     endif()
   else()
     message(STATUS "[middleware] vix_warnings not found (building standalone)")
@@ -350,14 +350,6 @@ else()
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
   )
-
-  if (TARGET vix_warnings)
-    target_link_libraries(vix_middleware INTERFACE vix_warnings)
-
-    if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
-      target_link_libraries(vix_middleware INTERFACE vix_sanitizers)
-    endif()
-  endif()
 
   vix_mw_try_link_utils(vix_middleware INTERFACE)
   vix_mw_try_link_json(vix_middleware INTERFACE)
