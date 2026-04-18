@@ -302,14 +302,22 @@ if (MIDDLEWARE_SOURCES)
       ${VIX_CACHE_TARGET}
   )
 
-  if (TARGET vix_warnings)
-    target_link_libraries(vix_middleware PRIVATE vix_warnings)
+  if (NOT MSVC)
+    target_compile_options(vix_middleware PRIVATE
+      -Wall
+      -Wextra
+      -Wpedantic
+    )
+  endif()
 
-    if (VIX_ENABLE_SANITIZERS AND TARGET vix_sanitizers)
-      target_link_libraries(vix_middleware PRIVATE vix_sanitizers)
-    endif()
-  else()
-    message(STATUS "[middleware] vix_warnings not found (building standalone)")
+  if (VIX_ENABLE_SANITIZERS AND NOT MSVC)
+    target_compile_options(vix_middleware PRIVATE
+      -fno-omit-frame-pointer
+      -fsanitize=address,undefined
+    )
+    target_link_options(vix_middleware PRIVATE
+      -fsanitize=address,undefined
+    )
   endif()
 
   vix_mw_try_link_utils(vix_middleware PUBLIC)
