@@ -88,6 +88,34 @@ function(vix_pick_first_target out_var)
 endfunction()
 
 # --------------------------------------------------------------------
+# Core preload dependencies
+# --------------------------------------------------------------------
+# Core needs these targets to be available before it is configured.
+# Otherwise it may disable JSON/template/env and fail later when compiling
+# headers that still include those modules.
+
+if (NOT TARGET vix::json AND NOT TARGET vix_json)
+  if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../json/CMakeLists.txt")
+    message(STATUS "[middleware] Adding json before core: ../json")
+    add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../json" "json")
+  endif()
+endif()
+
+if (NOT TARGET vix::template AND NOT TARGET template)
+  if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../template/CMakeLists.txt")
+    message(STATUS "[middleware] Adding template before core: ../template")
+    add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../template" "template")
+  endif()
+endif()
+
+if (NOT TARGET vix::env AND NOT TARGET vix_env)
+  if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../env/CMakeLists.txt")
+    message(STATUS "[middleware] Adding env before core: ../env")
+    add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../env" "env")
+  endif()
+endif()
+
+# --------------------------------------------------------------------
 # Required: Core
 # --------------------------------------------------------------------
 option(VIX_MW_FETCH_CORE "Auto-fetch vix::core if missing" ON)

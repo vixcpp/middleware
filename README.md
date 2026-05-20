@@ -1,70 +1,76 @@
-# Vix Middleware
+# Vix.cpp Middleware Module
 
-High-performance • Non-blocking • Composable • Production-oriented
+Composable HTTP middleware for Vix.cpp.
 
-The Vix **middleware** module provides a modern, ergonomic middleware system for the **Vix.cpp HTTP runtime**.
-It is designed for real applications: security hardening, parsing, auth, request-scoped state, and safe composition.
+The Middleware module provides a clean middleware layer for Vix applications, with support for context-based middleware, legacy HTTP middleware adapters, request-scoped state, middleware chaining, route protection, security presets, parsers, authentication helpers, and HTTP cache.
 
-This module supports **two middleware styles**:
+## Documentation
 
-* **Context-based middleware** (`MiddlewareFn`) — preferred
-* **Legacy HTTP middleware** (`HttpMiddleware`) — supported via adapters
+Full documentation will be available here:
 
-It also ships with **ready-to-use presets** (CORS, rate limit, CSRF, security headers, IP filtering, parsers, auth, HTTP cache).
+https://docs.vixcpp.com/modules/middleware/
 
----
+API reference:
 
-## Why this module exists
+https://docs.vixcpp.com/modules/middleware/api-reference
 
-Most C++ “middleware” systems are either:
+## What Middleware provides
 
-* too framework-specific
-* hard to compose
-* blocking by accident
-* not explicit about safety (early return, status changes, observable behavior)
+- Context-based middleware
+- Legacy HTTP middleware adapters
+- Middleware chaining
+- Conditional middleware
+- Prefix-based middleware installation
+- Exact-path route protection
+- Request-scoped context
+- Shared middleware services
+- Security presets
+- CORS helpers
+- Rate limiting
+- CSRF protection
+- Security headers
+- IP filtering
+- Body size limits
+- JSON, form, and multipart parsers
+- API key authentication
+- JWT authentication
+- Session helpers
+- RBAC helpers
+- HTTP cache middleware
 
-Vix middleware is designed to be:
+## Public headers
 
-* **explicit**: every middleware decides whether to continue (`next()`) or stop
-* **composable**: chain middlewares cleanly
-* **safe**: defensive parsing, predictable early returns, no hidden magic
-* **fast**: zero-cost abstractions where possible, non-blocking patterns by default
-
----
-
-## Quick start
-
-Run the full “mega example”:
-
-```bash
-vix run examples/http_middleware/mega_middleware_routes.cpp
+```cpp
+#include <vix/middleware/middleware.hpp>
+#include <vix/middleware/app/adapter.hpp>
+#include <vix/middleware/app/app_middleware.hpp>
 ```
 
-Test quickly:
+For ready-to-use presets:
 
-```bash
-curl -i http://127.0.0.1:8080/
-curl -i http://127.0.0.1:8080/api/ping -H "x-demo: 1"
-curl -i http://127.0.0.1:8080/api/secure/whoami -H "x-api-key: dev_key_123"
-curl -i http://127.0.0.1:8080/dev/trace
-curl -i http://127.0.0.1:8080/api/cache/demo
-curl -i http://127.0.0.1:8080/api/cache/demo -H "x-vix-cache: bypass"
+```cpp
+#include <vix/middleware/app/presets.hpp>
 ```
 
----
+For HTTP cache:
 
-## Minimal example
+```cpp
+#include <vix/middleware/app/http_cache.hpp>
+```
 
-### 1) A tiny context-based middleware
+## Basic middleware
 
 ```cpp
 #include <vix.hpp>
 #include <vix/middleware/app/adapter.hpp>
+#include <vix/middleware/middleware.hpp>
 
-static vix::middleware::MiddlewareFn hello_mw()
+static vix::middleware::MiddlewareFn hello_middleware()
 {
-  return [](vix::middleware::Context& ctx, vix::middleware::Next next) {
-    ctx.res().header("x-hello", "vix");
+  return [](vix::middleware::Context &ctx, vix::middleware::Next next)
+  {
+    ctx.res().header("x-vix-middleware", "active");
+
     next();
   };
 }
@@ -73,30 +79,47 @@ int main()
 {
   vix::App app;
 
-  // Adapt ctx middleware into an App middleware
-  app.use(vix::middleware::app::adapt_ctx(hello_mw()));
+  app.use(vix::middleware::app::adapt_ctx(hello_middleware()));
 
-  app.get("/", [](auto&, auto& res) {
-    res.send("ok");
+  app.get("/", [](vix::Request &req, vix::Response &res)
+  {
+    (void)req;
+
+    res.text("Hello from Vix middleware");
   });
 
   app.run(8080);
+
+  return 0;
 }
 ```
 
-### 2) A legacy-style middleware (still supported)
+Run:
+
+```bash
+vix run main.cpp
+```
+
+## Legacy HTTP middleware
 
 ```cpp
 #include <vix.hpp>
 #include <vix/middleware/app/adapter.hpp>
+#include <vix/middleware/middleware.hpp>
 
-static vix::middleware::HttpMiddleware require_header(std::string key)
+static vix::middleware::HttpMiddleware require_header(std::string header)
 {
-  return [key = std::move(key)](vix::Request& req, vix::Response& res, vix::middleware::Next next) {
-    if (req.header(key).empty()) {
-      res.status(401).send("missing header");
-      return; // do not call next()
+  return [header = std::move(header)](
+      vix::Request &req,
+      vix::Response &res,
+      vix::middleware::Next next)
+  {
+    if (req.header(header).empty())
+    {
+      res.status(401).text("missing required header");
+      return;
     }
+
     next();
   };
 }
@@ -105,179 +128,195 @@ int main()
 {
   vix::App app;
 
-  // Adapt legacy middleware into an App middleware
-  app.use(vix::middleware::app::adapt(require_header("x-demo")));
+  app.use(vix::middleware::app::adapt(require_header("x-api-key")));
 
-  app.get("/", [](auto&, auto& res) {
-    res.send("ok");
+  app.get("/", [](vix::Request &req, vix::Response &res)
+  {
+    (void)req;
+
+    res.text("OK");
   });
 
   app.run(8080);
+
+  return 0;
 }
 ```
 
----
-
-## Core concepts
-
-### 1) Context-based middleware (recommended)
-
-A `MiddlewareFn` looks like:
+## Middleware chaining
 
 ```cpp
-(vix::middleware::Context& ctx, vix::middleware::Next next) -> void
-```
+#include <vix.hpp>
+#include <vix/middleware/app/app_middleware.hpp>
+#include <vix/middleware/app/presets.hpp>
 
-Rules:
+int main()
+{
+  vix::App app;
 
-* To continue the pipeline, call `next()`.
-* To stop early, do **not** call `next()`.
-* You can modify request/response and store request-scoped state.
+  auto secure_api = vix::middleware::app::chain(
+      vix::middleware::app::security_headers_dev(),
+      vix::middleware::app::rate_limit_dev(120, std::chrono::minutes(1)),
+      vix::middleware::app::api_key_dev("dev_key_123"));
 
----
+  vix::middleware::app::install(app, "/api/", std::move(secure_api));
 
-### 2) RequestState (store data across middlewares + handler)
+  app.get("/api/status", [](vix::Request &req, vix::Response &res)
+  {
+    (void)req;
 
-Vix provides type-based request storage (like `std::any`).
+    res.json({
+      {"status", "ok"}
+    });
+  });
 
-```cpp
-struct AuthInfo { bool authed{}; std::string role; };
+  app.run(8080);
 
-ctx.req().emplace_state<AuthInfo>(AuthInfo{true, "admin"});
-
-if (ctx.req().has_state_type<AuthInfo>()) {
-  const auto& a = ctx.req().state<AuthInfo>();
+  return 0;
 }
 ```
 
-Use it to:
+## Route protection
 
-* pass computed data to handlers
-* keep auth/session info
-* track timings / trace IDs
-* attach parsing results
-
----
-
-### 3) Installation patterns
-
-The app adapter layer provides installation helpers:
-
-* `app.use(mw)` — global
-* `install(app, "/prefix/", mw)` — prefix middleware
-* `install_exact(app, "/path", mw)` — exact-path middleware
-* `chain(mw1, mw2, ...)` — compose middlewares
-
-This is how you build safe and readable route protection:
+Apply middleware to an exact path:
 
 ```cpp
-using namespace vix::middleware::app;
-
-install(app, "/api/", rate_limit_dev(120, std::chrono::minutes(1)));
-install(app, "/api/secure/", api_key_dev("dev_key_123"));
-install(app, "/api/admin/", chain(adapt_ctx(fake_auth()), adapt_ctx(require_admin())));
+vix::middleware::app::install_exact(
+    app,
+    "/admin",
+    vix::middleware::app::api_key_dev("dev_key_123"));
 ```
 
----
+Apply middleware to a prefix:
 
-## Presets included
-
-The module includes “batteries-included” middleware presets for common needs.
-Names may vary slightly depending on your tree, but the example demonstrates:
-
-### Security
-
-* CORS (dev / configurable)
-* Security headers
-* CSRF (optional)
-* IP filtering
-
-### Rate limiting
-
-* Simple in-memory dev limiter (good for local, demos, CI)
-
-### Auth
-
-* API key
-* JWT (when enabled)
-* RBAC-like gating patterns
-
-### Parsers
-
-* JSON parser
-* Form parser
-* Multipart parser
-* Multipart save (write uploads to disk safely)
-
-### HTTP cache (GET cache)
-
-A cache middleware for GET endpoints, with explicit bypass controls:
-
-* TTL-based caching
-* optional bypass header (e.g. `x-vix-cache: bypass`)
-* debug headers (e.g. `x-vix-cache-status: hit/miss/bypass`)
-
----
-
-## Full reference example
-
-The recommended starting point is:
-
-* `examples/http_middleware/mega_middleware_routes.cpp`
-
-It demonstrates:
-
-* routes (GET/POST/etc.)
-* global middleware (`App::use`)
-* prefix middleware (`install`)
-* exact-path middleware (`install_exact`)
-* `adapt_ctx()` and `adapt()`
-* middleware chaining (`chain`)
-* security presets (CORS, headers, CSRF, IP filter)
-* rate limiting
-* parsers (JSON, form, multipart)
-* auth (API key, role gating)
-* HTTP cache (GET)
-* RequestState patterns
-* early return patterns and defensive JSON replies
-
----
-
-## Directory layout
-
-Typical layout:
-
-```
-modules/middleware/
-│
-├─ include/vix/middleware/
-│  ├─ app/
-│  │  ├─ adapter.hpp          # adapt_ctx(), adapt(), install(), chain(), ...
-│  │  ├─ presets.hpp          # cors_dev(), rate_limit_dev(), api_key_dev(), ...
-│  │  └─ http_cache.hpp       # install_http_cache() + config
-│  ├─ Context.hpp
-│  ├─ Middleware.hpp
-│  └─ ...
-│
-└─ examples/
-   └─ http_middleware/
-      └─ mega_middleware_routes.cpp
+```cpp
+vix::middleware::app::install(
+    app,
+    "/api/",
+    vix::middleware::app::rate_limit_dev());
 ```
 
----
+## HTTP cache
 
-## Design philosophy
+```cpp
+#include <vix.hpp>
+#include <vix/middleware/app/http_cache.hpp>
 
-* **Control plane only**: middleware decides flow explicitly.
-* **No hidden blocking**: handlers stay short; heavy work should be scheduled.
-* **Defensive parsing**: invalid input yields predictable errors.
-* **Observable behavior**: trace IDs, debug headers, explicit cache bypass.
-* **Composable by default**: chains and prefix installs build readable security.
+int main()
+{
+  vix::App app;
 
----
+  vix::middleware::app::HttpCacheConfig cfg;
+  cfg.prefix = "/api/";
+  cfg.ttl_ms = 30'000;
+  cfg.add_debug_header = true;
+
+  vix::middleware::app::use_http_cache(app, cfg);
+
+  app.get("/api/cache/demo", [](vix::Request &req, vix::Response &res)
+  {
+    (void)req;
+
+    res.json({
+      {"cached", true}
+    });
+  });
+
+  app.run(8080);
+
+  return 0;
+}
+```
+
+## Middleware architecture
+
+```text
+App
+  -> App middleware
+  -> adapter
+  -> Context
+  -> Next
+  -> user middleware
+  -> handler
+```
+
+For cache middleware:
+
+```text
+Request
+  -> cache middleware
+  -> cache key
+  -> hit or miss
+  -> handler
+  -> cached response
+```
+
+## Build
+
+Contributors should use the Vix CLI to build this module.
+
+Vix wraps the C++ build workflow with project detection, presets, Ninja builds, clean logs, caching, and focused diagnostics. This keeps the contributor workflow consistent and helps avoid hidden C++ build issues.
+
+### Build the project
+
+```bash
+git clone https://github.com/vixcpp/vix.git
+cd vix
+vix build
+```
+
+### Build all targets
+
+Use this before running the full test suite, install workflows, or release checks:
+
+```bash
+vix build --build-target all
+```
+
+### Clean rebuild
+
+Use this when the local CMake cache or build directory may be stale:
+
+```bash
+vix build --clean
+```
+
+### Release build
+
+```bash
+vix build --preset release
+```
+
+## Tests
+
+Build all targets first, then run tests:
+
+```bash
+vix build --build-target all
+vix tests
+```
+
+Before opening a pull request, use:
+
+```bash
+vix fmt --check
+vix build --build-target all
+vix tests
+```
+
+## Useful links
+
+- Middleware documentation: https://docs.vixcpp.com/modules/middleware/
+- Middleware API reference: https://docs.vixcpp.com/modules/middleware/api-reference
+- Build command: https://docs.vixcpp.com/cli/build
+- Tests command: https://docs.vixcpp.com/cli/tests
+- Documentation: https://docs.vixcpp.com/
+- Engineering notes: https://blog.vixcpp.com/
+- Registry: https://registry.vixcpp.com/
+- GitHub: https://github.com/vixcpp/vix
 
 ## License
 
-MIT — same as Vix.cpp
+MIT License.
 
-Repository: [https://github.com/vixcpp/vix](https://github.com/vixcpp/vix)
+See [`LICENSE`](../../LICENSE) for details.
