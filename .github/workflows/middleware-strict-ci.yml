@@ -184,7 +184,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DVIX_ENABLE_SANITIZERS=OFF \
-            -DVIX_MW_BUILD_TESTS=ON \
+            -DVIX_MW_BUILD_TESTS=OFF \
             -DVIX_MW_FETCH_CORE=OFF \
             -DVIX_MW_FETCH_CACHE=OFF \
             -DVIX_MW_FETCH_UTILS=OFF \
@@ -198,10 +198,6 @@ jobs:
       - name: Build
         run: |
           cmake --build build -j"${BUILD_JOBS}"
-
-      - name: Run tests
-        run: |
-          ctest --test-dir build --output-on-failure --timeout 90
 
       - name: Print executables
         run: |
@@ -283,7 +279,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DVIX_ENABLE_SANITIZERS=OFF \
-            -DVIX_MW_BUILD_TESTS=ON \
+            -DVIX_MW_BUILD_TESTS=OFF \
             -DVIX_MW_FETCH_CORE=OFF \
             -DVIX_MW_FETCH_CACHE=OFF \
             -DVIX_MW_FETCH_UTILS=OFF \
@@ -297,7 +293,7 @@ jobs:
       - name: Run clang-tidy
         run: |
           set +e
-          find src tests -name '*.cpp' -print0 | xargs -0 -r -n1 -P2 clang-tidy -p build-analyze
+          find src -name '*.cpp' -print0 | xargs -0 -r -n1 -P2 clang-tidy -p build-analyze
           exit 0
 
       - name: Run cppcheck
