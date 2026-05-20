@@ -206,6 +206,16 @@ endif()
 message(STATUS "[middleware] Cache target: ${VIX_CACHE_TARGET}")
 
 # --------------------------------------------------------------------
+# Required: OpenSSL Crypto
+# --------------------------------------------------------------------
+find_package(OpenSSL REQUIRED)
+
+if (NOT TARGET OpenSSL::Crypto)
+  message(FATAL_ERROR "OpenSSL::Crypto not found. Install libssl-dev or provide OpenSSL.")
+endif()
+
+
+# --------------------------------------------------------------------
 # Optional: Utils
 # --------------------------------------------------------------------
 set(VIX_MW_WITH_UTILS "AUTO" CACHE STRING "Link utils module (AUTO|ON|OFF)")
@@ -328,6 +338,7 @@ if (MIDDLEWARE_SOURCES)
     PUBLIC
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
+      OpenSSL::Crypto
   )
 
   if (NOT MSVC)
@@ -385,6 +396,7 @@ else()
     INTERFACE
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
+      OpenSSL::Crypto
   )
 
   vix_mw_try_link_utils(vix_middleware INTERFACE)
@@ -430,6 +442,7 @@ message(STATUS "Core target: ${VIX_CORE_TARGET}")
 message(STATUS "Cache target: ${VIX_CACHE_TARGET}")
 message(STATUS "Utils mode: ${VIX_MW_WITH_UTILS}")
 message(STATUS "JSON mode: ${VIX_MW_WITH_JSON}")
+message(STATUS "OpenSSL Crypto: OpenSSL::Crypto")
 message(STATUS "Tests: ${VIX_MW_BUILD_TESTS}")
 message(STATUS "Include dir: ${CMAKE_CURRENT_SOURCE_DIR}/include")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
