@@ -10,8 +10,8 @@
  *
  *  Vix.cpp
  */
-#ifndef VIX_TRACING_HPP
-#define VIX_TRACING_HPP
+#ifndef VIX_MIDDLEWARE_OBSERVABILITY_TRACING_HPP
+#define VIX_MIDDLEWARE_OBSERVABILITY_TRACING_HPP
 
 #include <cstdint>
 #include <functional>
@@ -308,4 +308,4 @@ namespace vix::middleware::observability
 
 } // namespace vix::middleware::observability
 
-#endif // VIX_TRACING_HPP
+#endif

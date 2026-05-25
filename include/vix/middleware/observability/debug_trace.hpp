@@ -10,8 +10,8 @@
  *
  *  Vix.cpp
  */
-#ifndef VIX_DEBUG_TRACE_HPP
-#define VIX_DEBUG_TRACE_HPP
+#ifndef VIX_MIDDLEWARE_OBSERVABILITY_DEBUG_TRACE_HPP
+#define VIX_MIDDLEWARE_OBSERVABILITY_DEBUG_TRACE_HPP
 
 #include <chrono>
 #include <memory>
@@ -296,4 +296,4 @@ namespace vix::middleware::observability
 
 } // namespace vix::middleware::observability
 
-#endif // VIX_DEBUG_TRACE_HPP
+#endif

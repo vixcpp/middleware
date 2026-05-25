@@ -10,8 +10,8 @@
  *
  *  Vix.cpp
  */
-#ifndef VIX_MIDDLEWARE_UTILS_HPP
-#define VIX_MIDDLEWARE_UTILS_HPP
+#ifndef VIX_MIDDLEWARE_OBSERVABILITY_UTILS_HPP
+#define VIX_MIDDLEWARE_OBSERVABILITY_UTILS_HPP
 
 #include <string>
 #include <string_view>
@@ -53,4 +53,4 @@ namespace vix::middleware::observability
 
 } // namespace vix::middleware::observability
 
-#endif // VIX_MIDDLEWARE_UTILS_HPP
+#endif

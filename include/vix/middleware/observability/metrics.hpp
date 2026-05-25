@@ -10,8 +10,8 @@
  *
  *  Vix.cpp
  */
-#ifndef VIX_METRICS_HPP
-#define VIX_METRICS_HPP
+#ifndef VIX_MIDDLEWARE_OBSERVABILITY_METRICS_HPP
+#define VIX_MIDDLEWARE_OBSERVABILITY_METRICS_HPP
 
 #include <algorithm>
 #include <atomic>
@@ -463,4 +463,4 @@ namespace vix::middleware::observability
 
 } // namespace vix::middleware::observability
 
-#endif // VIX_METRICS_HPP
+#endif // VIX_MIDDLEWARE_OBSERVABILITY_METRICS_HPP

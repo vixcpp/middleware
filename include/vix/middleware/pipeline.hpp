@@ -15,7 +15,10 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <cctype>
+#include <exception>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,8 +71,8 @@ namespace vix::middleware
      */
     struct DevObservabilitySinks
     {
-      std::shared_ptr<observability::IMetricsSink> metrics{};
-      std::shared_ptr<observability::IDebugTraceSink> debug{};
+      std::shared_ptr<vix::middleware::observability::IMetricsSink> metrics{};
+      std::shared_ptr<vix::middleware::observability::IDebugTraceSink> debug{};
 
       DevObservabilitySinks() = default;
     };
@@ -117,6 +120,7 @@ namespace vix::middleware
 
       if (!sinks.metrics)
         sinks.metrics = std::make_shared<InMemoryMetrics>();
+
       if (!sinks.debug)
         sinks.debug = std::make_shared<InMemoryDebugTrace>();
 

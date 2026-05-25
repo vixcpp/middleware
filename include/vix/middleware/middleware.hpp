@@ -10,8 +10,8 @@
  *
  *  Vix.cpp
  */
-#ifndef VIX_MIDDLEWARE_HPP
-#define VIX_MIDDLEWARE_HPP
+#ifndef VIX_MIDDLEWARE_MAIN_HPP
+#define VIX_MIDDLEWARE_MAIN_HPP
 
 #include <functional>
 #include <utility>
