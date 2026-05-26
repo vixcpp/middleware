@@ -69,7 +69,7 @@
 // performance
 #include <vix/middleware/performance/compression.hpp>
 #include <vix/middleware/performance/etag.hpp>
-#include <vix/middleware/performance/static_files.hpp>
+#include <vix/middleware/performance/static_compression.hpp>
 
 // security
 #include <vix/middleware/security/cors.hpp>

@@ -14,53 +14,20 @@
 #define VIX_MIDDLEWARE_STATIC_DIR_BRIDGE_HPP
 
 #include <vix/app/App.hpp>
-#include <vix/middleware/middleware.hpp>
-#include <vix/middleware/performance/static_files.hpp>
+#include <vix/middleware/performance/static_compression.hpp>
 
 namespace vix::middleware
 {
   /**
-   * @brief Register the static directory handler bridge for vix::App.
+   * @brief Register the static response hook for vix::App.
    *
-   * Installs a default App static handler that mounts the StaticFiles middleware
-   * on the provided mount path.
+   * This keeps vix::core independent from vix::middleware while allowing
+   * the middleware module to add gzip compression to static file responses.
    */
   inline void register_static_dir()
   {
-    static vix::mw::Services g_services{};
-
-    vix::App::set_static_handler(
-        [](vix::App &app,
-           const std::filesystem::path &root,
-           const std::string &mount,
-           const std::string &index_file,
-           bool add_cache_control,
-           const std::string &cache_control,
-           bool fallthrough) -> bool
-        {
-          vix::middleware::performance::StaticFilesOptions opt;
-          opt.mount = mount;
-          opt.index_file = index_file;
-          opt.add_cache_control = add_cache_control;
-          opt.cache_control = cache_control;
-          opt.fallthrough = fallthrough;
-
-          auto mw = vix::middleware::performance::static_files(root, std::move(opt));
-          auto httpmw = vix::middleware::to_http_middleware(std::move(mw), g_services);
-
-          vix::App::Middleware appmw =
-              [httpmw = std::move(httpmw)](
-                  vix::http::Request &req,
-                  vix::http::ResponseWrapper &res,
-                  vix::App::Next next) mutable
-          {
-            httpmw(req, res, vix::mw::Next([n = std::move(next)]() mutable
-                                           { n(); }));
-          };
-
-          app.use(std::string(mount), std::move(appmw));
-          return true;
-        });
+    vix::App::set_static_response_hook(
+        vix::middleware::performance::compressed_static_response_hook());
   }
 
 } // namespace vix::middleware
