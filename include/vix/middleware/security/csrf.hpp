@@ -70,6 +70,27 @@ namespace vix::middleware::security
     }
 
     /**
+     * @brief Return a request header using case-insensitive lookup.
+     */
+    inline std::string request_header_icase(
+        const vix::middleware::Request &req,
+        std::string_view name)
+    {
+      std::string value = req.header(name);
+
+      if (!value.empty())
+        return value;
+
+      for (const auto &[header_name, header_value] : req.headers())
+      {
+        if (iequals(header_name, name))
+          return header_value;
+      }
+
+      return {};
+    }
+
+    /**
      * @brief Check whether a method should be protected by CSRF.
      *
      * By default: POST/PUT/PATCH/DELETE are unsafe.
@@ -156,8 +177,8 @@ namespace vix::middleware::security
         return;
       }
 
-      const std::string header_token = req.header(opt.header_name);
-      const std::string cookie = req.header("cookie");
+      const std::string header_token = detail::request_header_icase(req, opt.header_name);
+      const std::string cookie = detail::request_header_icase(req, "Cookie");
       const std::string cookie_token = detail::extract_cookie(cookie, opt.cookie_name);
 
       if (header_token.empty() || cookie_token.empty() || header_token != cookie_token)

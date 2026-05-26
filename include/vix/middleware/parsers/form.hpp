@@ -134,6 +134,46 @@ namespace vix::middleware::parsers
   }
 
   /**
+   * @brief Compare two strings using ASCII case-insensitive comparison.
+   */
+  inline bool same_header_name_icase(std::string_view a, std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @brief Return a request header using case-insensitive lookup.
+   */
+  inline std::string request_header_icase(
+      const vix::http::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (same_header_name_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
+  /**
    * @brief Parse and optionally store a URL-encoded form body in request state.
    */
   inline MiddlewareFn form(FormParserOptions opt = {})
@@ -158,15 +198,18 @@ namespace vix::middleware::parsers
 
       if (opt.require_content_type)
       {
-        const std::string ct = req.header("content-type");
+        const std::string ct = request_header_icase(req, "content-type");
+
         if (ct.empty() || !vix::utils::starts_with_icase(ct, "application/x-www-form-urlencoded"))
         {
           Error e;
           e.status = 415;
           e.code = "unsupported_media_type";
           e.message = "Content-Type must be application/x-www-form-urlencoded";
+
           if (!ct.empty())
             e.details["content_type"] = ct;
+
           ctx.send_error(normalize(std::move(e)));
           return;
         }

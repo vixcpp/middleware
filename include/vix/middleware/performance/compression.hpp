@@ -341,8 +341,8 @@ namespace vix::middleware::performance
 
       const std::string ae = get_accept_encoding(ctx.req());
 
-      const bool wants_br = token_allowed(ae, "br");
-      const bool wants_gzip = token_allowed(ae, "gzip");
+      [[maybe_unused]] const bool wants_br = token_allowed(ae, "br");
+      [[maybe_unused]] const bool wants_gzip = token_allowed(ae, "gzip");
 
       next();
 

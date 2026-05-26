@@ -17,6 +17,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <cctype>
 
 #include <vix/middleware/middleware.hpp>
 
@@ -57,6 +58,49 @@ namespace vix::middleware::security
   };
 
   /**
+   * @brief Compare two header names using ASCII case-insensitive matching.
+   */
+  inline bool ip_filter_header_name_equals_icase(
+      std::string_view a,
+      std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @brief Return a request header using case-insensitive lookup.
+   */
+  inline std::string ip_filter_request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (ip_filter_header_name_equals_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
+
+  /**
    * @brief Extract the client IP address from the request.
    *
    * Resolution order:
@@ -69,18 +113,19 @@ namespace vix::middleware::security
    * @param opt IP filter options.
    * @return Extracted client IP or empty string if unavailable.
    */
-  inline std::string extract_client_ip(const vix::middleware::Request &req, const IpFilterOptions &opt)
+  inline std::string extract_client_ip(
+      const vix::middleware::Request &req,
+      const IpFilterOptions &opt)
   {
-    std::string ip = req.header(opt.header_name);
+    std::string ip = ip_filter_request_header_icase(req, opt.header_name);
 
-    // x-forwarded-for may contain "client, proxy1, proxy2"
     auto comma = ip.find(',');
     if (comma != std::string::npos)
       ip = ip.substr(0, comma);
 
-    // trim spaces
     while (!ip.empty() && (ip.front() == ' ' || ip.front() == '\t'))
       ip.erase(ip.begin());
+
     while (!ip.empty() && (ip.back() == ' ' || ip.back() == '\t'))
       ip.pop_back();
 
@@ -90,7 +135,8 @@ namespace vix::middleware::security
     if (!opt.use_remote_addr_fallback)
       return {};
 
-    ip = req.header("x-real-ip");
+    ip = ip_filter_request_header_icase(req, "X-Real-IP");
+
     if (!ip.empty())
       return ip;
 

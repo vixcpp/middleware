@@ -30,16 +30,16 @@ int main()
     f << "<h1>OK</h1>";
   }
 
+  vix::App::set_static_response_hook(
+      vix::middleware::performance::compressed_static_response_hook({
+          .min_size = 8,
+          .add_vary = true,
+          .enabled = true,
+      }));
+
   vix::App app;
 
-  auto handler = vix::middleware::performance::compressed_static_handler({
-      .min_size = 8,
-      .add_vary = true,
-      .enabled = true,
-  });
-
-  const bool installed = handler(
-      app,
+  app.static_dir(
       root,
       "/",
       "index.html",
@@ -47,7 +47,7 @@ int main()
       "public, max-age=3600",
       true);
 
-  assert(installed);
+  assert(std::filesystem::exists(root / "index.html"));
 
   std::cout << "[OK] static_compression smoke\n";
   return 0;

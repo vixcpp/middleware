@@ -17,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <cctype>
 
 #include <vix/middleware/middleware.hpp>
 #include <vix/utils/String.hpp>
@@ -44,6 +45,49 @@ namespace vix::middleware::parsers
   };
 
   /**
+   * @brief Compare two header names using ASCII case-insensitive matching.
+   */
+  inline bool multipart_header_name_equals_icase(
+      std::string_view a,
+      std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @brief Return a request header using case-insensitive lookup.
+   */
+  inline std::string multipart_request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (multipart_header_name_equals_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
+
+  /**
    * @brief Validate multipart/form-data headers and optionally store boundary info.
    *
    * This middleware does not parse parts. It only validates Content-Type and boundary,
@@ -68,15 +112,18 @@ namespace vix::middleware::parsers
         return;
       }
 
-      const std::string ct = req.header("content-type");
+      const std::string ct = multipart_request_header_icase(req, "Content-Type");
+
       if (ct.empty() || !vix::utils::starts_with_icase(ct, "multipart/form-data"))
       {
         Error e;
         e.status = 415;
         e.code = "unsupported_media_type";
         e.message = "Content-Type must be multipart/form-data";
+
         if (!ct.empty())
           e.details["content_type"] = ct;
+
         ctx.send_error(normalize(std::move(e)));
         return;
       }

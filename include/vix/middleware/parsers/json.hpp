@@ -17,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <cctype>
 
 #include <nlohmann/json.hpp>
 
@@ -43,6 +44,49 @@ namespace vix::middleware::parsers
     std::size_t max_bytes{0};  // 0 => no limit (body_limit middleware can handle globally)
     bool store_in_state{true}; // store JsonBody in ctx.state
   };
+
+  /**
+   * @brief Compare two header names using ASCII case-insensitive matching.
+   */
+  inline bool json_header_name_equals_icase(
+      std::string_view a,
+      std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @brief Return a request header using case-insensitive lookup.
+   */
+  inline std::string json_request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (json_header_name_equals_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
 
   /**
    * @brief Parse request body as JSON and optionally store it in state.
@@ -90,16 +134,18 @@ namespace vix::middleware::parsers
 
       if (opt.require_content_type)
       {
-        const std::string ct = req.header("content-type");
-        // accept "application/json" and "application/json; charset=utf-8"
+        const std::string ct = json_request_header_icase(req, "Content-Type");
+
         if (ct.empty() || !vix::utils::starts_with_icase(ct, "application/json"))
         {
           Error e;
           e.status = 415;
           e.code = "unsupported_media_type";
           e.message = "Content-Type must be application/json";
+
           if (!ct.empty())
             e.details["content_type"] = ct;
+
           ctx.send_error(normalize(std::move(e)));
           return;
         }

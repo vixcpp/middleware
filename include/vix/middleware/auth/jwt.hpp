@@ -67,6 +67,45 @@ namespace vix::middleware::auth
     return s;
   }
 
+  /** @brief ASCII case-insensitive equality. */
+  inline bool equals_ci(std::string_view a, std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const char ca = static_cast<char>(
+          std::tolower(static_cast<unsigned char>(a[i])));
+      const char cb = static_cast<char>(
+          std::tolower(static_cast<unsigned char>(b[i])));
+
+      if (ca != cb)
+        return false;
+    }
+
+    return true;
+  }
+
+  /** @brief Return a request header using case-insensitive lookup. */
+  inline std::string request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (equals_ci(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
+
   /** @brief Case-insensitive prefix test (ASCII). */
   inline bool starts_with_ci(std::string_view s, std::string_view prefix_lower)
   {
@@ -195,7 +234,7 @@ namespace vix::middleware::auth
       const vix::middleware::Request &req,
       const JwtOptions &opt)
   {
-    std::string h = req.header(opt.auth_header);
+    std::string h = request_header_icase(req, opt.auth_header);
     h = trim_copy(std::move(h));
 
     if (!h.empty())

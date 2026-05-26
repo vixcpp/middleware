@@ -13,6 +13,7 @@
 #ifndef VIX_ETAG_HPP
 #define VIX_ETAG_HPP
 
+#include <cctype>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -35,11 +36,13 @@ namespace vix::middleware::performance
   inline std::uint64_t fnv1a_64(std::string_view s)
   {
     std::uint64_t h = 1469598103934665603ull;
+
     for (unsigned char c : s)
     {
       h ^= static_cast<std::uint64_t>(c);
       h *= 1099511628211ull;
     }
+
     return h;
   }
 
@@ -47,12 +50,49 @@ namespace vix::middleware::performance
   {
     static const char *hex = "0123456789abcdef";
     std::string out(16, '0');
+
     for (int i = 15; i >= 0; --i)
     {
       out[static_cast<std::size_t>(i)] = hex[v & 0xFULL];
       v >>= 4;
     }
+
     return out;
+  }
+
+  inline bool header_name_equals_icase(std::string_view a, std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  inline std::string request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (header_name_equals_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
   }
 
   inline bool method_allows_etag(const vix::middleware::Request &req)
@@ -75,15 +115,18 @@ namespace vix::middleware::performance
 
       auto &res = ctx.res();
       const int sc = res.res.status();
+
       if (sc < 200 || sc >= 300)
         return;
 
       const std::string body = res.res.body();
+
       if (body.size() < opt.min_body_size)
         return;
 
       const std::uint64_t h = fnv1a_64(body);
       std::string tag = "\"" + to_hex_u64(h) + "\"";
+
       if (opt.weak)
         tag = "W/" + tag;
 
@@ -92,11 +135,13 @@ namespace vix::middleware::performance
       if (opt.add_cache_control_if_missing)
       {
         const std::string cc = res.res.header("Cache-Control");
+
         if (cc.empty())
           res.header("Cache-Control", opt.cache_control);
       }
 
-      const std::string inm = ctx.req().header("if-none-match");
+      const std::string inm = request_header_icase(ctx.req(), "If-None-Match");
+
       if (!inm.empty() && inm == tag)
       {
         res.status(304);

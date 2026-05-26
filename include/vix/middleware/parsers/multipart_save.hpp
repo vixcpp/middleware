@@ -97,41 +97,51 @@ namespace vix::middleware::parsers
   inline std::string header_value(std::string_view headers, std::string_view key)
   {
     auto lower = [](char c)
-    { return (c >= 'A' && c <= 'Z') ? char(c - 'A' + 'a') : c; };
+    {
+      return (c >= 'A' && c <= 'Z') ? char(c - 'A' + 'a') : c;
+    };
 
     std::string k;
     k.reserve(key.size());
+
     for (char c : key)
       k.push_back(lower(c));
 
     std::size_t pos = 0;
+
     while (pos < headers.size())
     {
       auto eol = headers.find("\r\n", pos);
+
       if (eol == std::string_view::npos)
-        break;
+        eol = headers.size();
 
       auto line = headers.substr(pos, eol - pos);
-      pos = eol + 2;
 
       auto colon = line.find(':');
-      if (colon == std::string_view::npos)
-        continue;
+      if (colon != std::string_view::npos)
+      {
+        std::string lk;
+        lk.reserve(colon);
 
-      std::string lk;
-      lk.reserve(colon);
-      for (std::size_t i = 0; i < colon; ++i)
-        lk.push_back(lower(line[i]));
+        for (std::size_t i = 0; i < colon; ++i)
+          lk.push_back(lower(line[i]));
 
-      if (lk != k)
-        continue;
+        if (lk == k)
+        {
+          std::string v(line.substr(colon + 1));
+          return trim(v);
+        }
+      }
 
-      std::string v(line.substr(colon + 1));
-      return trim(v);
+      if (eol == headers.size())
+        break;
+
+      pos = eol + 2;
     }
+
     return {};
   }
-
   /** @brief Extract param from Content-Disposition: name="x", filename="a.png". */
   inline std::string param_from_content_disposition(std::string_view cd, std::string_view name)
   {
@@ -312,6 +322,43 @@ namespace vix::middleware::parsers
     return any ? n : 0;
   }
 
+  inline bool multipart_save_header_name_equals_icase(
+      std::string_view a,
+      std::string_view b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+      const auto ca = static_cast<unsigned char>(a[i]);
+      const auto cb = static_cast<unsigned char>(b[i]);
+
+      if (std::tolower(ca) != std::tolower(cb))
+        return false;
+    }
+
+    return true;
+  }
+
+  inline std::string multipart_save_request_header_icase(
+      const vix::middleware::Request &req,
+      std::string_view name)
+  {
+    std::string value = req.header(name);
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[header_name, header_value] : req.headers())
+    {
+      if (multipart_save_header_name_equals_icase(header_name, name))
+        return header_value;
+    }
+
+    return {};
+  }
+
   /**
    * @brief Parse multipart/form-data and save files to disk.
    */
@@ -321,7 +368,7 @@ namespace vix::middleware::parsers
     {
       auto &req = ctx.req();
 
-      const std::string ct = req.header("content-type");
+      const std::string ct = multipart_save_request_header_icase(req, "Content-Type");
       if (ct.empty() || !vix::utils::starts_with_icase(ct, "multipart/form-data"))
       {
         Error e;
@@ -347,7 +394,7 @@ namespace vix::middleware::parsers
 
       if (opt.max_bytes > 0)
       {
-        const std::string cl = req.header("content-length");
+        const std::string cl = multipart_save_request_header_icase(req, "Content-Length");
         if (!cl.empty())
         {
           const std::size_t declared = parse_content_length(cl);
