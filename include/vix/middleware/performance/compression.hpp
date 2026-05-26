@@ -151,6 +151,37 @@ namespace vix::middleware::performance
     return true;
   }
 
+  /**
+   * @brief Read Accept-Encoding with case-insensitive header lookup.
+   *
+   * Request::header() is case-sensitive, while HTTP header names are not.
+   */
+  inline std::string get_accept_encoding(const vix::middleware::Request &req)
+  {
+    std::string value = req.header("Accept-Encoding");
+
+    if (!value.empty())
+      return value;
+
+    value = req.header("accept-encoding");
+
+    if (!value.empty())
+      return value;
+
+    value = req.header("ACCEPT-ENCODING");
+
+    if (!value.empty())
+      return value;
+
+    for (const auto &[name, header_value] : req.headers())
+    {
+      if (contains_token_icase(name, "accept-encoding"))
+        return header_value;
+    }
+
+    return {};
+  }
+
 #if defined(VIX_HAS_ZLIB) && VIX_HAS_ZLIB
   /**
    * @brief Compress data with gzip using zlib.
@@ -308,7 +339,7 @@ namespace vix::middleware::performance
         return;
       }
 
-      const std::string ae = ctx.req().header("accept-encoding");
+      const std::string ae = get_accept_encoding(ctx.req());
 
       const bool wants_br = token_allowed(ae, "br");
       const bool wants_gzip = token_allowed(ae, "gzip");
