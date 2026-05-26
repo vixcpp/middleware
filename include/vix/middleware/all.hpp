@@ -29,14 +29,7 @@
 #include <vix/middleware/module_init.hpp>
 #include <vix/middleware/pipeline.hpp>
 #include <vix/middleware/periodic.hpp>
-#include <vix/middleware/http_cache.hpp>
 #include <vix/middleware/static_dir_bridge.hpp>
-
-// app
-#include <vix/middleware/app/adapter.hpp>
-#include <vix/middleware/app/app_middleware.hpp>
-#include <vix/middleware/app/http_cache.hpp>
-#include <vix/middleware/app/presets.hpp>
 
 // auth
 #include <vix/middleware/auth/api_key.hpp>
