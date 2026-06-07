@@ -24,6 +24,12 @@
 #ifndef VIX_MIDDLEWARE_ALL_HPP
 #define VIX_MIDDLEWARE_ALL_HPP
 
+// app
+#include <vix/middleware/app/adapter.hpp>
+#include <vix/middleware/app/app_middleware.hpp>
+#include <vix/middleware/app/http_cache.hpp>
+#include <vix/middleware/app/presets.hpp>
+
 // Core
 #include <vix/middleware/middleware.hpp>
 #include <vix/middleware/module_init.hpp>
