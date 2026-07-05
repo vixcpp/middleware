@@ -372,7 +372,7 @@ namespace vix::middleware::app
                           "filename", f.filename,
                           "content_type", f.content_type,
                           "saved_path", f.saved_path,
-                          "bytes", (long long)f.bytes}));
+                          "bytes", static_cast<long long>(f.bytes)}));
     }
 
     std::vector<vix::json::token> fields_flat;
@@ -387,10 +387,10 @@ namespace vix::middleware::app
     return vix::json::obj(
         {"ok", true,
          "upload_dir", std::move(upload_dir),
-         "files_count", (long long)form.files.size(),
-         "fields_count", (long long)form.fields.size(),
-         "total_bytes", (long long)form.total_bytes,
-         "total_files_bytes", (long long)form.total_files_bytes,
+         "files_count", static_cast<long long>(form.files.size()),
+         "fields_count", static_cast<long long>(form.fields.size()),
+         "total_bytes", static_cast<long long>(form.total_bytes),
+         "total_files_bytes", static_cast<long long>(form.total_files_bytes),
          "files", vix::json::array(std::move(files_vec)),
          "fields", vix::json::obj(std::move(fields_flat))});
   }
