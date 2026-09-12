@@ -59,6 +59,11 @@ set(CMAKE_DISABLE_FIND_PACKAGE_VixOrm ON)
 
 include(GNUInstallDirs)
 
+option(VIX_ENABLE_HTTP_COMPRESSION
+  "Enable HTTP compression middleware dependencies (zlib/brotli)"
+  ON
+)
+
 # --------------------------------------------------------------------
 # Global settings
 # --------------------------------------------------------------------
@@ -407,6 +412,85 @@ else()
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   )
 endif()
+
+# --------------------------------------------------------------------
+# Optional HTTP compression dependencies
+# Compression is implemented in public inline middleware headers, so the
+# enabled library requirements must be propagated to direct consumers.
+# --------------------------------------------------------------------
+set(_VIX_MW_COMPRESSION_SCOPE INTERFACE)
+if (MIDDLEWARE_SOURCES)
+  set(_VIX_MW_COMPRESSION_SCOPE PUBLIC)
+endif()
+
+set(_VIX_MW_HTTP_COMPRESSION_ZLIB OFF)
+if (VIX_ENABLE_HTTP_COMPRESSION)
+  if (VIX_ZLIB_BUNDLED)
+    if (NOT TARGET vix::zlib)
+      message(FATAL_ERROR "[middleware] bundled zlib provider requested but vix::zlib is unavailable.")
+    endif()
+    target_compile_definitions(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+      VIX_HAS_ZLIB=1
+    )
+    target_link_libraries(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+      vix::zlib
+    )
+    set(_VIX_MW_HTTP_COMPRESSION_ZLIB ON)
+    message(STATUS "[middleware] Compression: bundled zlib -> gzip enabled")
+  else()
+    find_package(ZLIB QUIET)
+    if (ZLIB_FOUND)
+      if (NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+        target_include_directories(ZLIB::ZLIB INTERFACE "${ZLIB_INCLUDE_DIRS}")
+        target_link_libraries(ZLIB::ZLIB INTERFACE "${ZLIB_LIBRARIES}")
+      endif()
+
+      target_compile_definitions(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+        VIX_HAS_ZLIB=1
+      )
+      target_link_libraries(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+        ZLIB::ZLIB
+      )
+      set(_VIX_MW_HTTP_COMPRESSION_ZLIB ON)
+      message(STATUS "[middleware] Compression: zlib found -> gzip enabled")
+    else()
+      message(STATUS "[middleware] Compression: zlib not found -> gzip disabled")
+    endif()
+  endif()
+
+  if (VIX_BROTLI_BUNDLED)
+    if (NOT TARGET vix::brotli)
+      message(FATAL_ERROR "[middleware] bundled Brotli provider requested but vix::brotli is unavailable.")
+    endif()
+    target_compile_definitions(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+      VIX_HAS_BROTLI=1
+    )
+    target_link_libraries(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+      vix::brotli
+    )
+    message(STATUS "[middleware] Compression: bundled Brotli -> br enabled")
+  else()
+    find_library(BROTLI_ENC NAMES brotlienc)
+    find_library(BROTLI_COMMON NAMES brotlicommon)
+    if (BROTLI_ENC AND BROTLI_COMMON)
+      target_compile_definitions(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+        VIX_HAS_BROTLI=1
+      )
+      target_link_libraries(vix_middleware ${_VIX_MW_COMPRESSION_SCOPE}
+        ${BROTLI_ENC}
+        ${BROTLI_COMMON}
+      )
+      message(STATUS "[middleware] Compression: brotli found -> br enabled")
+    else()
+      message(STATUS "[middleware] Compression: brotli not found -> br disabled")
+    endif()
+  endif()
+endif()
+
+set_property(TARGET vix_middleware PROPERTY
+  VIX_HTTP_COMPRESSION_ZLIB ${_VIX_MW_HTTP_COMPRESSION_ZLIB}
+)
 
 # --------------------------------------------------------------------
 # Headers installation
