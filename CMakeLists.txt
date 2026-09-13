@@ -389,6 +389,10 @@ else()
   add_library(vix::middleware ALIAS vix_middleware)
   add_library(vix::mw         ALIAS vix_middleware)
 
+  set_target_properties(vix_middleware PROPERTIES
+    EXPORT_NAME middleware
+  )
+
   target_compile_features(vix_middleware INTERFACE cxx_std_20)
 
   target_include_directories(vix_middleware
