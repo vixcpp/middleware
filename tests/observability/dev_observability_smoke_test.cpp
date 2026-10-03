@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
 #include <vix/http/Request.hpp>
 #include <vix/http/Response.hpp>
@@ -29,13 +30,92 @@ static vix::http::Request make_req()
   return vix::http::Request("GET", "/dev", std::move(headers), "");
 }
 
+namespace
+{
+  class ScopedVixEnv
+  {
+  public:
+    explicit ScopedVixEnv(const char *value)
+    {
+      if (const char *current = std::getenv("VIX_ENV"))
+      {
+        was_set_ = true;
+        previous_ = current;
+      }
+
+      set(value);
+    }
+
+    ~ScopedVixEnv()
+    {
+      if (was_set_)
+      {
+        set(previous_.c_str());
+      }
+      else
+      {
+#if defined(_WIN32)
+        _putenv_s("VIX_ENV", "");
+#else
+        unsetenv("VIX_ENV");
+#endif
+      }
+    }
+
+    ScopedVixEnv(const ScopedVixEnv &) = delete;
+    ScopedVixEnv &operator=(const ScopedVixEnv &) = delete;
+
+    void set(const char *value)
+    {
+#if defined(_WIN32)
+      _putenv_s("VIX_ENV", value);
+#else
+      setenv("VIX_ENV", value, 1);
+#endif
+    }
+
+    void unset()
+    {
+#if defined(_WIN32)
+      _putenv_s("VIX_ENV", "");
+#else
+      unsetenv("VIX_ENV");
+#endif
+    }
+
+  private:
+    bool was_set_{false};
+    std::string previous_{};
+  };
+
+  void test_env_is_dev_contract()
+  {
+    ScopedVixEnv environment("");
+    environment.unset();
+    assert(!HttpPipeline::env_is_dev());
+
+    environment.set("");
+    assert(!HttpPipeline::env_is_dev());
+
+    environment.set("dev");
+    assert(HttpPipeline::env_is_dev());
+
+    environment.set("DEV");
+    assert(HttpPipeline::env_is_dev());
+
+    environment.set("production");
+    assert(!HttpPipeline::env_is_dev());
+
+    environment.set("");
+    assert(!HttpPipeline::env_is_dev());
+  }
+} // namespace
+
 int main()
 {
-#if defined(_WIN32)
-  _putenv_s("VIX_ENV", "dev");
-#else
-  setenv("VIX_ENV", "dev", 1);
-#endif
+  test_env_is_dev_contract();
+
+  ScopedVixEnv environment("dev");
 
   auto req = make_req();
   vix::http::Response res;

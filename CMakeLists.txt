@@ -24,14 +24,12 @@
 #   - vix::cache
 #
 # Optional Dependencies:
-#   - vix::utils
 #   - vix::json / vix_json
 #
 # Options:
 #   - VIX_MW_FETCH_CORE   : Auto-fetch core if missing
 #   - VIX_MW_FETCH_CACHE  : Auto-fetch cache if missing
-#   - VIX_MW_FETCH_UTILS  : Auto-fetch utils if missing
-#   - VIX_MW_WITH_UTILS   : AUTO|ON|OFF
+#   - VIX_MW_FETCH_ENV    : Auto-fetch env if missing
 #   - VIX_MW_WITH_JSON    : AUTO|ON|OFF
 #   - VIX_MW_BUILD_TESTS  : Build middleware tests
 #   - VIX_ENABLE_SANITIZERS : Inherit sanitizers from umbrella project
@@ -113,12 +111,50 @@ if (NOT TARGET vix::template AND NOT TARGET template)
   endif()
 endif()
 
-if (NOT TARGET vix::env AND NOT TARGET vix_env)
+# --------------------------------------------------------------------
+# Required: Env
+# --------------------------------------------------------------------
+option(VIX_MW_FETCH_ENV "Auto-fetch vix::env if missing" ON)
+
+vix_pick_first_target(VIX_ENV_TARGET
+  vix::env
+  vix_env
+  env
+)
+
+if (NOT VIX_ENV_TARGET)
   if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../env/CMakeLists.txt")
     message(STATUS "[middleware] Adding env before core: ../env")
     add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../env" "env")
+  elseif (VIX_MW_FETCH_ENV)
+    include(FetchContent)
+    message(STATUS "[middleware] Fetching vix::env via FetchContent")
+    FetchContent_Declare(vix_env
+      GIT_REPOSITORY https://github.com/vixcpp/env.git
+      GIT_TAG        dev
+    )
+    FetchContent_MakeAvailable(vix_env)
+  else()
+    message(FATAL_ERROR
+      "vix::env not found. Provide ../env or enable VIX_MW_FETCH_ENV=ON."
+    )
   endif()
+
+  vix_pick_first_target(VIX_ENV_TARGET
+    vix::env
+    vix_env
+    env
+  )
 endif()
+
+if (NOT VIX_ENV_TARGET)
+  message(FATAL_ERROR
+    "Env target not found after dependency resolution. "
+    "Expected one of: vix::env, vix_env, env."
+  )
+endif()
+
+message(STATUS "[middleware] Env target: ${VIX_ENV_TARGET}")
 
 # --------------------------------------------------------------------
 # Required: Core
@@ -221,64 +257,6 @@ endif()
 
 
 # --------------------------------------------------------------------
-# Optional: Utils
-# --------------------------------------------------------------------
-set(VIX_MW_WITH_UTILS "AUTO" CACHE STRING "Link utils module (AUTO|ON|OFF)")
-set_property(CACHE VIX_MW_WITH_UTILS PROPERTY STRINGS AUTO ON OFF)
-option(VIX_MW_FETCH_UTILS "Auto-fetch vix::utils if missing (when needed)" ON)
-
-function(vix_mw_try_link_utils onto link_scope)
-  if (VIX_MW_WITH_UTILS STREQUAL "OFF")
-    message(STATUS "[middleware] Utils disabled (OFF)")
-    target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_UTILS=1)
-    return()
-  endif()
-
-  set(_utils_target "")
-  vix_pick_first_target(_utils_target
-    vix::utils
-    vix_utils
-    utils
-  )
-
-  if (NOT _utils_target)
-    if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../utils/CMakeLists.txt")
-      message(STATUS "[middleware] Adding utils from umbrella: ../utils")
-      add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../utils" "utils")
-    elseif (VIX_MW_FETCH_UTILS)
-      include(FetchContent)
-      message(STATUS "[middleware] Fetching vix::utils via FetchContent")
-      FetchContent_Declare(vix_utils
-        GIT_REPOSITORY https://github.com/vixcpp/utils.git
-        GIT_TAG        dev
-      )
-      FetchContent_MakeAvailable(vix_utils)
-    endif()
-
-    vix_pick_first_target(_utils_target
-      vix::utils
-      vix_utils
-      utils
-    )
-  endif()
-
-  if (_utils_target)
-    message(STATUS "[middleware] Utils backend: ${_utils_target}")
-    target_link_libraries(${onto} ${link_scope} ${_utils_target})
-    target_compile_definitions(${onto} ${link_scope} VIX_MW_WITH_UTILS=1)
-  else()
-    if (VIX_MW_WITH_UTILS STREQUAL "ON")
-      message(FATAL_ERROR
-        "Utils required but not found. Expected one of: vix::utils, vix_utils, utils."
-      )
-    else()
-      message(STATUS "[middleware] Utils not detected; building without utils.")
-      target_compile_definitions(${onto} ${link_scope} VIX_MW_NO_UTILS=1)
-    endif()
-  endif()
-endfunction()
-
-# --------------------------------------------------------------------
 # Optional: JSON backend
 # --------------------------------------------------------------------
 set(VIX_MW_WITH_JSON "AUTO" CACHE STRING "Link JSON backend (AUTO|ON|OFF)")
@@ -343,6 +321,7 @@ if (MIDDLEWARE_SOURCES)
     PUBLIC
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
+      ${VIX_ENV_TARGET}
       OpenSSL::Crypto
   )
 
@@ -364,7 +343,6 @@ if (MIDDLEWARE_SOURCES)
     )
   endif()
 
-  vix_mw_try_link_utils(vix_middleware PUBLIC)
   vix_mw_try_link_json(vix_middleware PUBLIC)
 
   set_target_properties(vix_middleware PROPERTIES
@@ -405,10 +383,10 @@ else()
     INTERFACE
       ${VIX_CORE_TARGET}
       ${VIX_CACHE_TARGET}
+      ${VIX_ENV_TARGET}
       OpenSSL::Crypto
   )
 
-  vix_mw_try_link_utils(vix_middleware INTERFACE)
   vix_mw_try_link_json(vix_middleware INTERFACE)
 
   install(TARGETS vix_middleware
@@ -528,7 +506,7 @@ else()
 endif()
 message(STATUS "Core target: ${VIX_CORE_TARGET}")
 message(STATUS "Cache target: ${VIX_CACHE_TARGET}")
-message(STATUS "Utils mode: ${VIX_MW_WITH_UTILS}")
+message(STATUS "Env target: ${VIX_ENV_TARGET}")
 message(STATUS "JSON mode: ${VIX_MW_WITH_JSON}")
 message(STATUS "OpenSSL Crypto: OpenSSL::Crypto")
 message(STATUS "Tests: ${VIX_MW_BUILD_TESTS}")

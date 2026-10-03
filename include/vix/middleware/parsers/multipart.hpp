@@ -20,7 +20,7 @@
 #include <cctype>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/utils/String.hpp>
+#include <vix/middleware/parsers/detail/content_type.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -114,7 +114,7 @@ namespace vix::middleware::parsers
 
       const std::string ct = multipart_request_header_icase(req, "Content-Type");
 
-      if (ct.empty() || !vix::utils::starts_with_icase(ct, "multipart/form-data"))
+      if (ct.empty() || !detail::content_type_starts_with_icase(ct, "multipart/form-data"))
       {
         Error e;
         e.status = 415;
@@ -131,7 +131,7 @@ namespace vix::middleware::parsers
       MultipartInfo info;
       info.content_type = ct;
       info.body_bytes = body.size();
-      info.boundary = vix::utils::extract_boundary(ct);
+      info.boundary = detail::extract_multipart_boundary(ct);
 
       if (opt.require_boundary && info.boundary.empty())
       {

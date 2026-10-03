@@ -28,7 +28,7 @@
 #include <vector>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/utils/String.hpp>
+#include <vix/middleware/parsers/detail/content_type.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -369,7 +369,7 @@ namespace vix::middleware::parsers
       auto &req = ctx.req();
 
       const std::string ct = multipart_save_request_header_icase(req, "Content-Type");
-      if (ct.empty() || !vix::utils::starts_with_icase(ct, "multipart/form-data"))
+      if (ct.empty() || !detail::content_type_starts_with_icase(ct, "multipart/form-data"))
       {
         Error e;
         e.status = 415;
@@ -381,7 +381,7 @@ namespace vix::middleware::parsers
         return;
       }
 
-      const std::string boundary = vix::utils::extract_boundary(ct);
+      const std::string boundary = detail::extract_multipart_boundary(ct);
       if (opt.require_boundary && boundary.empty())
       {
         Error e;

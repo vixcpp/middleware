@@ -22,7 +22,7 @@
 #include <nlohmann/json.hpp>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/utils/String.hpp>
+#include <vix/middleware/parsers/detail/content_type.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -136,7 +136,7 @@ namespace vix::middleware::parsers
       {
         const std::string ct = json_request_header_icase(req, "Content-Type");
 
-        if (ct.empty() || !vix::utils::starts_with_icase(ct, "application/json"))
+        if (ct.empty() || !detail::content_type_starts_with_icase(ct, "application/json"))
         {
           Error e;
           e.status = 415;

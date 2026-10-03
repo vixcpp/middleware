@@ -13,6 +13,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -73,6 +74,74 @@ static void test_multipart_probe()
   assert(res.body() == "----X");
 }
 
+static void test_multipart_content_type_contract()
+{
+  struct BoundaryCase
+  {
+    std::string content_type;
+    std::string boundary;
+  };
+
+  for (const BoundaryCase &test_case : {
+           BoundaryCase{"Multipart/Form-Data; boundary= \tplain-boundary \t; charset=utf-8",
+                        "plain-boundary"},
+           BoundaryCase{"multipart/form-data; boundary= \"quoted boundary\"; charset=utf-8",
+                        "quoted boundary"},
+       })
+  {
+    auto req = make_multipart_probe_req(test_case.content_type);
+    vix::http::Response res;
+    vix::http::ResponseWrapper wrapper(res);
+    HttpPipeline pipeline;
+    bool next_called = false;
+    pipeline.use(vix::middleware::parsers::multipart());
+    pipeline.run(req, wrapper,
+                 [&](Request &request, Response &response)
+                 {
+                   next_called = true;
+                   assert(request.state<vix::middleware::parsers::MultipartInfo>().boundary ==
+                          test_case.boundary);
+                   response.ok();
+                 });
+    assert(next_called);
+    assert(res.status() == 200);
+  }
+
+  for (const std::string content_type : {
+           std::string{"multipart/form-data"},
+           std::string{"multipart/form-data; Boundary=case-sensitive"},
+       })
+  {
+    auto req = make_multipart_probe_req(content_type);
+    vix::http::Response res;
+    vix::http::ResponseWrapper wrapper(res);
+    HttpPipeline pipeline;
+    bool next_called = false;
+    pipeline.use(vix::middleware::parsers::multipart());
+    pipeline.run(req, wrapper,
+                 [&](Request &, Response &)
+                 {
+                   next_called = true;
+                 });
+    assert(!next_called);
+    assert(res.status() == 400);
+  }
+
+  auto rejected_req = make_multipart_probe_req("text/plain; boundary=ignored");
+  vix::http::Response rejected_res;
+  vix::http::ResponseWrapper rejected_wrapper(rejected_res);
+  HttpPipeline rejected_pipeline;
+  bool rejected_next_called = false;
+  rejected_pipeline.use(vix::middleware::parsers::multipart());
+  rejected_pipeline.run(rejected_req, rejected_wrapper,
+                        [&](Request &, Response &)
+                        {
+                          rejected_next_called = true;
+                        });
+  assert(!rejected_next_called);
+  assert(rejected_res.status() == 415);
+}
+
 static void test_multipart_save()
 {
   const std::filesystem::path upload_dir =
@@ -98,7 +167,7 @@ static void test_multipart_save()
       separator + "--\r\n";
 
   auto req = make_multipart_save_req(
-      "multipart/form-data; boundary=" + boundary,
+      "Multipart/Form-Data; boundary=" + boundary,
       body);
 
   vix::http::Response res;
@@ -149,6 +218,7 @@ static void test_multipart_save()
 int main()
 {
   test_multipart_probe();
+  test_multipart_content_type_contract();
   test_multipart_save();
 
   std::cout << "[OK] multipart parser and save\n";

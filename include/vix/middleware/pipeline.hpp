@@ -27,7 +27,7 @@
 #include <vix/middleware/observability/tracing.hpp>
 #include <vix/middleware/observability/metrics.hpp>
 #include <vix/middleware/observability/debug_trace.hpp>
-#include <vix/utils/Env.hpp>
+#include <vix/env/GetOr.hpp>
 
 namespace vix::middleware
 {
@@ -82,15 +82,14 @@ namespace vix::middleware
      */
     static bool env_is_dev()
     {
-      const char *v = vix::utils::vix_getenv("VIX_ENV");
-      if (!v || !*v)
+      std::string value = vix::env::get_or("VIX_ENV");
+      if (value.empty())
         return false;
 
-      std::string s(v);
-      for (auto &c : s)
+      for (auto &c : value)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
-      return (s == "dev" || s == "development" || s == "local");
+      return (value == "dev" || value == "development" || value == "local");
     }
 
     /**

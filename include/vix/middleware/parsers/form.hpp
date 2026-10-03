@@ -20,7 +20,7 @@
 #include <utility>
 
 #include <vix/middleware/middleware.hpp>
-#include <vix/utils/String.hpp>
+#include <vix/middleware/parsers/detail/content_type.hpp>
 
 namespace vix::middleware::parsers
 {
@@ -200,7 +200,7 @@ namespace vix::middleware::parsers
       {
         const std::string ct = request_header_icase(req, "content-type");
 
-        if (ct.empty() || !vix::utils::starts_with_icase(ct, "application/x-www-form-urlencoded"))
+        if (ct.empty() || !detail::content_type_starts_with_icase(ct, "application/x-www-form-urlencoded"))
         {
           Error e;
           e.status = 415;

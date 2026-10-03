@@ -11,6 +11,7 @@
  *  Vix.cpp
  */
 #include <cassert>
+#include <initializer_list>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -52,6 +53,48 @@ int main()
 
   assert(res.status() == 200);
   assert(res.body() == "1");
+
+  for (const std::string content_type : {
+           std::string{"APPLICATION/JSON"},
+           std::string{"Application/Json; charset=utf-8"},
+       })
+  {
+    auto typed_req = make_req(R"({"x":1})", content_type);
+    vix::http::Response typed_res;
+    vix::http::ResponseWrapper typed_wrapper(typed_res);
+    HttpPipeline typed_pipeline;
+    bool next_called = false;
+    typed_pipeline.use(vix::middleware::parsers::json());
+    typed_pipeline.run(typed_req, typed_wrapper,
+                       [&](Request &, Response &response)
+                       {
+                         next_called = true;
+                         response.ok();
+                       });
+    assert(next_called);
+    assert(typed_res.status() == 200);
+  }
+
+  for (const std::string content_type : {
+           std::string{},
+           std::string{"application"},
+           std::string{"text/plain"},
+       })
+  {
+    auto rejected_req = make_req(R"({"x":1})", content_type);
+    vix::http::Response rejected_res;
+    vix::http::ResponseWrapper rejected_wrapper(rejected_res);
+    HttpPipeline rejected_pipeline;
+    bool next_called = false;
+    rejected_pipeline.use(vix::middleware::parsers::json());
+    rejected_pipeline.run(rejected_req, rejected_wrapper,
+                          [&](Request &, Response &)
+                          {
+                            next_called = true;
+                          });
+    assert(!next_called);
+    assert(rejected_res.status() == 415);
+  }
 
   std::cout << "[OK] json parser\n";
   return 0;
